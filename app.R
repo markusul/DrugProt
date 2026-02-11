@@ -6,6 +6,9 @@ library(grid)
 library(readxl)
 library(shinyWidgets)
 
+library(pryr)
+
+
 #choises of timepoints for drug effects
 t_choice <- c("6h", "24h", "48h")
 
@@ -22,6 +25,7 @@ replace_drug_ids <- function(x) {
 load('data/order.RData')
 nDrugs <- length(drugOrder)
 drugOrder <- sapply(drugOrder, replace_drug_ids)
+nProtein <- length(prot_names_short)
 
 ui <- dashboardPage(
   dashboardHeader(title = "Drug Perturbations"),
@@ -102,9 +106,10 @@ server <- function(input, output) {
   print("Start Server")
   
   # load data for Drug Effects
-  load("data/DrugEffects.RData")
+  #load("data/DrugEffects.RData")
   load("data/proteinSelection.RData")
-  load("data/proteinNetworkPval.RData")
+  #load("data/proteinNetworkPval.RData")
+  load("data/proteinNetworkPval_pvalue.RData")
 
 
   observeEvent(input$preSelected, {
@@ -120,15 +125,28 @@ server <- function(input, output) {
     prot_upload <- prot_upload[prot_upload %in% prot_names_short]
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", selected = prot_upload)
   })
+  
+  protSet <- reactive({
+    if (is.null(input$protSet))
+      c()
+    else
+      input$protSet
+  })
+  protSet_d <- protSet %>% debounce(1300)
+  
   P_selection <- reactive({
-    sel <- which(prot_names_short %in% input$protSet)
+    print(protSet_d())
+    sel <- which(prot_names_short %in% protSet_d())
     if(length(sel) == 0) return(NULL)
     sel
   })
 
   pvec <- reactive({
+    print("pvec")
     if(is.null(input$t)) return(NULL)
     t_selection <- t_choice %in% input$t
+    print(mem_used())
+    load("data/DrugEffects.RData")
     
     #adjust p values of drug effects on selected proteins
     selPvecs <- array(allPvecs[, , P_selection()], dim = c(dim(allPvecs)[1:2], length(P_selection())))
@@ -137,37 +155,77 @@ server <- function(input, output) {
     # collect min p value of drug effect over proteins and time points
     pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
     names(pvec) <- sapply(treatment, replace_drug_ids)
+    print(mem_used())
     pvec
   })
   
   Links_all <- reactive({
+    print("links")
     if(is.null(P_selection())) return(NULL)
+    selection <- P_selection()
     
     # select relevant p-values
-    Pval_sel <- lapply(Pval_all, function(links){
-      rel.Links <- links$source %in% P_selection() | links$target %in% P_selection()
-      links[rel.Links, ]
+    #Pval_sel <- lapply(Pval_all, function(links){
+    #  rel.Links <- links$source %in% P_selection() | links$target %in% P_selection()
+    #  links[rel.Links, ]
+    #})
+    
+    # low memory version
+    # select relevant p-values
+    print(mem_used())
+    #Pval_sel <- lapply(t_choice[-1], function(tp){
+    Pval_sel <- lapply(1:2, function(tp){
+      #load(paste0("data/proteinNetworkPval_pvalue_", tp, ".RData"))
+      
+      print("relevant p values")
+      source_idx <- as.vector(outer(selection, nProtein * (0:(nProtein-1)), "+"))
+      target_idx <- rep((selection - 1) * nProtein, each = nProtein) + 1:nProtein 
+      
+      # Combine and unique
+      rel.Links <- sort(unique(c(source_idx, target_idx)))
+      current_pvals <- pvalue[rel.Links, tp]
+      
+      # We only care about significant links (we still correct for all of them)
+      keep_idx <- which(current_pvals < input$alpha)
+      final_indices <- rel.Links[keep_idx]
+      final_pvals   <- current_pvals[keep_idx]
+      
+      final_source <- (final_indices - 1) %% nProtein + 1
+      final_target <- ceiling(final_indices / nProtein)
+      
+      print(mem_used())
+      data.frame(source = final_source, 
+                 target = final_target, 
+                 pvalue = final_pvals)
     })
     
+    print("correction")
     # p-value correction
-    Tpval <- sapply(Pval_sel, function(links) links$pvalue)
-    Tpval.corr <- matrix(p.adjust(Tpval, method = input$corectionProtein), ncol = 2)
-    Pval_sel[[1]][, "pvalue"] <- Tpval.corr[, 1]
-    Pval_sel[[2]][, "pvalue"] <- Tpval.corr[, 2]
+    Tpval <- lapply(Pval_sel, function(links) links$pvalue)
+    nPpertime <- sapply(Tpval, length)
+    
+    # number of p values to correct for
+    nPvalues <- 2*length(selection)*(2*nProtein - length(selection))
+    
+    Tpval <- p.adjust(unlist(Tpval), method = input$corectionProtein, 
+                                  n = nPvalues)
+    Pval_sel[[1]][, "pvalue"] <- Tpval[1:nPpertime[1]]
+    Pval_sel[[2]][, "pvalue"] <- Tpval[(nPpertime[1] + 1):sum(nPpertime)]
     
     # convert p-values to links
     Links_all <- lapply(Pval_sel, function(links) links[links$pvalue < input$alpha, ])
     
     if(sum(sapply(Links_all, nrow)) == 0) return(NULL)
+    
     Links_all
   })
 
   SummGraph <- reactive({
     if(is.null(Links_all())) return(NULL)
     Links_sum <- do.call(rbind, Links_all())
-    Links_sum$source <- Links_sum$source - 1
-    Links_sum$target <- Links_sum$target - 1
-    Links_sum$value <- 1
+    Links_sum[, "source"] <- Links_sum[, "source"] - 1
+    Links_sum[, "target"] <- Links_sum[, "target"] - 1
+    Links_sum[, "value"] <- 1
   
     rel.Nodes <- sort(unique(c(P_selection()-1, unlist(Links_sum[, c('source', 'target')]))))
     Nodes_sum <- data.frame(name = prot_names_short[rel.Nodes+1], group = "Connected", size = 1)
@@ -355,8 +413,8 @@ server <- function(input, output) {
     P_sel_inNodes <- which(SummGraph()$Nodes_sum$name %in% prot_names_short[P_selection()])
     df <- lapply(P_sel_inNodes - 1, function(i) {
       Protein <- SummGraph()$Nodes_sum$name[i + 1]
-      Children <- sum(SummGraph()$Links_sum$source == i)#-1
-      Parents <- sum(SummGraph()$Links_sum$target == i)#-1
+      Children <- sum(SummGraph()$Links_sum[, "source"] == i)#-1
+      Parents <- sum(SummGraph()$Links_sum[, "target"] == i)#-1
       df <- data.frame(Protein = Protein, num.Parents = Parents, num.Children = Children)
       return(df)
     })
@@ -368,8 +426,8 @@ server <- function(input, output) {
     if(length(P_selection()) == 0) return(NULL)
     P_sel_inNodes <- which(SummGraph()$Nodes_sum$name %in% prot_names_short[P_selection()])
     fam <- lapply(P_sel_inNodes - 1, function(i) {
-      Children <- SummGraph()$Nodes_sum$name[SummGraph()$Links_sum$target[SummGraph()$Links_sum$source == i & SummGraph()$Links_sum$target != i] + 1]
-      Parents <- SummGraph()$Nodes_sum$name[SummGraph()$Links_sum$source[SummGraph()$Links_sum$target == i & SummGraph()$Links_sum$source != i] + 1]
+      Children <- SummGraph()$Nodes_sum$name[SummGraph()$Links_sum[, "target"][SummGraph()$Links_sum[, "source"] == i & SummGraph()$Links_sum[, "target"] != i] + 1]
+      Parents <- SummGraph()$Nodes_sum$name[SummGraph()$Links_sum[, "source"][SummGraph()$Links_sum[, "target"] == i & SummGraph()$Links_sum[, "source"] != i] + 1]
       return(list(Children = Children, Parents = Parents))
     })
 
@@ -448,9 +506,9 @@ server <- function(input, output) {
           links <- Links_all_res[[i]]
           if(nrow(links) == 0) return(NULL)
         df <- data.frame(InteractionType = ifelse(i == 1, "6h to 24h", "24h to 48h"),
-                         Source = prot_names_short[links$source], 
-                         Target = prot_names_short[links$target], 
-                         PValue = links$pvalue, 
+                         Source = prot_names_short[links[, "source"]], 
+                         Target = prot_names_short[links[, "target"]], 
+                         PValue = links[, "pvalue"], 
                          stringsAsFactors = FALSE)
           df
         }))
