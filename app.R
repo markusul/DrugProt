@@ -9,15 +9,40 @@ library(shinyWidgets)
 library(pryr)
 
 
-#choises of timepoints for drug effects
-t_choice <- c("6h", "24h", "48h")
-
 # replace drug ids by names
 load('data/drugLookup.RData')
+
 replace_drug_ids <- function(x) {
+  # 1. Split the string by backticks and underscores
+  # E.g., "`drug_#123`" becomes c("", "drug", "#123", "")
+  # E.g., "`drug_EV`"   becomes c("", "drug", "EV", "")
   ids <- strsplit(x, "_|`")[[1]]
-  ids <- ids[grepl("#", ids)]
-  names <- sapply(ids, function(id) drug_lookup[[id]])
+  
+  # 2. Filter out empty strings and the "drug" prefix
+  ids <- ids[ids != "" & ids != "drug" & ids != ":"]
+  
+  # If there's nothing left, return the original input
+  if(length(ids) == 0) return(x)
+  
+  # 3. Process each remaining part
+  names <- sapply(ids, function(id) {
+    # Check if this part is a "number" (ID). 
+    # We remove the '#' for the numeric check to handle both '123' and '#123'.
+    is_numeric_id <- grepl("#", id) || !is.na(as.numeric(gsub("#", "", id)))
+    
+    if (is_numeric_id) {
+      # It's an ID: Try to get the name from drug_lookup
+      val <- drug_lookup[id]
+      # If it's found in the table, return the name; otherwise return the ID itself
+      if (!is.na(val)) return(unname(val))
+      return(id)
+    } else {
+      # It's already a name (like "EV", "LA", "MK"): Return it as is
+      return(id)
+    }
+  })
+  
+  # 4. Join parts back with ":" (useful for drug combinations)
   paste(names, collapse = ":")
 }
 
@@ -27,18 +52,113 @@ nDrugs <- length(drugOrder)
 drugOrder <- sapply(drugOrder, replace_drug_ids)
 nProtein <- length(prot_names_short)
 
+#choises of timepoints for drug effects
+t_choice <- paste0(expTimes, "h")
+#t_choice <- c("6h", "24h", "48h")
+
 ui <- dashboardPage(
   dashboardHeader(title = "Drug Perturbations"),
   dashboardSidebar(
     sidebarMenu(
+      menuItem("About", tabName = "About", icon = icon("circle-info")),
       menuItem("Settings", tabName = "Settings", icon = icon("cog")),
       menuItem("Drug Effects", tabName = "DrugEffects", icon = icon("dashboard")),
       menuItem("Protein Network", tabName = "ProteinNetwork", icon = icon("th"))
     )
   ),
   dashboardBody(
+    withMathJax(),
     tabItems(
-      tabItem(tabName = "Settings", 
+      tabItem(tabName = "About",
+              h2("Drug-Prot: statistical inference of drug effects and protein dependencies"),
+              fluidRow(
+                box(title = "What Drug-Prot does", status = "primary", solidHeader = TRUE, width = 12,
+                    p("Drug-Prot is an interactive query system built on a large-scale perturbation proteomics dataset of 18 breast cancer cell lines, ",
+                      "treated with 63 single drugs and 59 drug combinations, with protein expression measured at 6, 24, and 48 hours after treatment ",
+                      "(Sun et al., 2025). For a user-defined set of proteins, Drug-Prot reports pre-computed statistical evidence for two kinds of relationship:"),
+                    tags$ul(
+                      tags$li(strong("Drug effects on proteins:"), " corrected p-values for the effect of each single drug and each drug pair on the selected proteins, at each time point. ",
+                              "These are reported on the ", strong("Drug Effects"), " tab."),
+                      tags$li(strong("Temporal dependencies between proteins:"), " a directed network in which an edge from one protein to another indicates that the earlier protein's differential expression ",
+                              "is significantly associated with the later protein's, after adjusting for residual drug effects. These are reported on the ", strong("Protein Network"), " tab.")
+                    ),
+                    p("All evidence is pre-computed (approximately 62 million p-values across all 5,392 measured proteins, 122 treatments, and three time points), ",
+                      "so queries return instantly and you never need to download the underlying dataset.")
+                )
+              ),
+              fluidRow(
+                box(title = "How to interpret the results", status = "warning", solidHeader = TRUE, width = 12,
+                    p(strong("The two kinds of relationship are not interpreted the same way.")),
+                    tags$ul(
+                      tags$li(strong("Drug \u2192 protein effects can be read causally."),
+                              " Because drug administration is externally controlled and unconfounded, a significant effect can be interpreted as the interventional change in protein expression that the drug (or drug pair) would induce."),
+                      tags$li(strong("Protein \u2192 protein edges are directional, but not necessarily causal."),
+                              " Edge direction reflects the temporal ordering of the measurements (earlier \u2192 later), not a verified mechanism. ",
+                              "Hidden, unmeasured biological processes acting between time points may influence both endpoints, so these edges are best treated as ",
+                              em("hypothesis-generating"), " rather than mechanistic.")
+                    ),
+                    p("The drug effects (at 6 hours) and the protein dependencies (at 24 and 48 hours) are estimated from two high-dimensional linear models, sketched below for a single protein:"),
+                    p("$$ y^{6} = \\sum_{j} (\\alpha^{6_{0}}_{j} + \\alpha^{6}_{j} D_{j}) + \\sum_{j \\neq k} (\\beta^{6_{0}}_{jk} + \\beta^{6}_{jk} D_{j} D_{k}) + \\varepsilon^{6} $$"),
+                    p("$$ y^{t} = \\sum_{j} (\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}) + \\sum_{j \\neq k} (\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}) + (Y^{t-})^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\quad t \\in \\{24, 48\\} $$"),
+                    p("where ", tags$code("y\u1d57"), " is the differential expression of the protein at time ", tags$code("t"), " (relative to its untreated baseline); ",
+                      tags$code("D\u2c7c"), " is the administered concentration of drug ", tags$code("j"), "; ",
+                      tags$code("Y\u1d57\u207b"), " is the vector of differential expressions of all measured proteins at the preceding time point; and ", tags$code("\u03b5"), " is noise. ",
+                      "The ", tags$code("\u03b1\u2070"), ", ", tags$code("\u03b2\u2070"), " terms are treatment intercepts; ", tags$code("\u03b1"), ", ", tags$code("\u03b2"),
+                      " capture single-drug and drug-interaction effects; and ", tags$code("\u03b3"), " captures the temporal protein-to-protein dependencies."),
+                    p("Parameters are estimated with the de-sparsified Lasso, and group p-values are computed for the drug terms. ",
+                      "This is a simplified sketch: the full models, the precise definition of the aggregated differential expression ", tags$code("Y"),
+                      " (which handles the unpaired measurements across time points), and all assumptions are given in the accompanying paper.")
+                )
+              ),
+              fluidRow(
+                box(title = "How a query works", status = "primary", solidHeader = TRUE, width = 6,
+                    tags$ol(
+                      tags$li("On the ", strong("Settings"), " tab, choose a set of proteins of interest \u2014 type/select them, click ",
+                              em("pre Selected Set"), " to load the 26 IC50-predictive proteins from the paper, or upload a .txt file with one protein name per line."),
+                      tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
+                      tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
+                      tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs.")
+                    ),
+                    p(em("Note:"), " for a queried set, both the parents and children of each protein are searched across the whole proteome, so the returned network can extend well beyond the proteins you selected.")
+                ),
+                box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,
+                    p(strong("Web application: "), a(href = "https://ulme.shinyapps.io/DrugProt/", "ulme.shinyapps.io/DrugProt", target = "_blank")),
+                    p(strong("Source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
+                    p(strong("Underlying dataset: "), "Sun et al. (2025), ",
+                      a(href = "https://doi.org/10.1101/2025.02.07.637070", "doi.org/10.1101/2025.02.07.637070", target = "_blank"))
+                )
+              ),
+              fluidRow(
+                box(title = "Cite Drug-Prot", status = "primary", solidHeader = TRUE, width = 12,
+                    p("If you use Drug-Prot, please cite:"),
+                    p(em("Ulmer, M., Sun, R., Qian, L., Aebersold, R., Guo, T., and B\u00fchlmann, P. (2026). ",
+                         "Drug-Prot: A query system for statistical inference of drug effects and interactions in dynamic proteomic networks.")),
+                    p("Please also cite the underlying dataset:"),
+                    p(em("Sun, R., Qian, L., Li, Y., et al. (2025). A perturbation proteomics-based foundation model for virtual cell construction. ",
+                         "bioRxiv. https://doi.org/10.1101/2025.02.07.637070"))
+                )
+              ),
+              fluidRow(
+                box(title = "Methods & references", status = "primary", solidHeader = TRUE, width = 12, collapsible = TRUE, collapsed = TRUE,
+                    p("The statistical methods underlying Drug-Prot are described in detail in the accompanying paper. Key references:"),
+                    tags$ul(
+                      tags$li("Zhang, C.-H. and Zhang, S. S. (2014). Confidence intervals for low dimensional parameters in high dimensional linear models. ",
+                              em("J. R. Stat. Soc. B"), " 76(1):217\u2013242. (de-sparsified Lasso)"),
+                      tags$li("van de Geer, S., B\u00fchlmann, P., Ritov, Y., and Dezeure, R. (2014). On asymptotically optimal confidence regions and tests for high-dimensional models. ",
+                              em("Ann. Statist."), " 42(3):1166\u20131202."),
+                      tags$li("Dezeure, R., B\u00fchlmann, P., Meier, L., and Meinshausen, N. (2015). High-dimensional inference: confidence intervals, p-values and R-software hdi. ",
+                              em("Statist. Sci."), " 30(4):533\u2013558."),
+                      tags$li("B\u00fchlmann, P. (2013). Statistical significance in high-dimensional linear models. ",
+                              em("Bernoulli"), " 19(4):1212\u20131242. (group p-values)"),
+                      tags$li("Holm, S. (1979). A simple sequentially rejective multiple test procedure. ",
+                              em("Scand. J. Statist."), " 6(2):65\u201370. (FWER control for drug effects)"),
+                      tags$li("Benjamini, Y. and Hochberg, Y. (1995). Controlling the false discovery rate. ",
+                              em("J. R. Stat. Soc. B"), " 57(1):289\u2013300. (FDR control for protein effects)")
+                    )
+                )
+              )
+      ),
+      tabItem(tabName = "Settings",
               h2("Settings"),
               fluidRow(
                 box(title = "Select Proteins of Interest", status = "primary", solidHeader = TRUE,
@@ -107,7 +227,7 @@ server <- function(input, output) {
   
   # load data for Drug Effects
   #load("data/DrugEffects.RData")
-  load("data/proteinSelection.RData")
+  #load("data/proteinSelection.RData")
   #load("data/proteinNetworkPval.RData")
   load("data/proteinNetworkPval_pvalue.RData")
 
@@ -156,6 +276,7 @@ server <- function(input, output) {
     pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
     names(pvec) <- sapply(treatment, replace_drug_ids)
     print(mem_used())
+    print(names(pvec))
     pvec
   })
   
@@ -174,7 +295,7 @@ server <- function(input, output) {
     # select relevant p-values
     print(mem_used())
     #Pval_sel <- lapply(t_choice[-1], function(tp){
-    Pval_sel <- lapply(1:2, function(tp){
+    Pval_sel <- lapply(1:(length(expTimes)-1), function(tp){
       #load(paste0("data/proteinNetworkPval_pvalue_", tp, ".RData"))
       
       print("relevant p values")
@@ -205,12 +326,24 @@ server <- function(input, output) {
     nPpertime <- sapply(Tpval, length)
     
     # number of p values to correct for
-    nPvalues <- 2*length(selection)*(2*nProtein - length(selection))
+    nPvalues <- (length(expTimes) - 1)*length(selection)*(2*nProtein - length(selection))
     
     Tpval <- p.adjust(unlist(Tpval), method = input$corectionProtein, 
                                   n = nPvalues)
-    Pval_sel[[1]][, "pvalue"] <- Tpval[1:nPpertime[1]]
-    Pval_sel[[2]][, "pvalue"] <- Tpval[(nPpertime[1] + 1):sum(nPpertime)]
+    
+    # Dynamically assign the adjusted p-values back to their respective time points
+    start_idx <- 1
+    for (i in seq_along(Pval_sel)) {
+      end_idx <- start_idx + nPpertime[i] - 1
+      
+      Pval_sel[[i]][, "pvalue"] <- Tpval[start_idx:end_idx]
+      
+      # Update the starting index for the next time point
+      start_idx <- end_idx + 1
+    }
+    
+    #Pval_sel[[1]][, "pvalue"] <- Tpval[1:nPpertime[1]]
+    #Pval_sel[[2]][, "pvalue"] <- Tpval[(nPpertime[1] + 1):sum(nPpertime)]
     
     # convert p-values to links
     Links_all <- lapply(Pval_sel, function(links) links[links$pvalue < input$alpha, ])
@@ -240,38 +373,58 @@ server <- function(input, output) {
   
   # temporal graph
   TempGraph <- reactive({
-    #if(is.null(Links_all())) return(NULL)
-    expTimes <- c(6, 24, 48)
-    rel6 <- sort(unique(c(P_selection(), Links_all()[[1]][, "source"])))
-    rel24 <- sort(unique(c(P_selection(), Links_all()[[1]][, "target"], Links_all()[[2]][, "source"])))
-    rel48 <- sort(unique(c(P_selection(), Links_all()[[2]][, "target"])))
-    rel <- list(rel6, rel24, rel48)
-    lenRel <- c(0, length(rel6), length(rel24), length(rel48))
+    # if(is.null(Links_all())) return(NULL)
     
-    nodenames <- c(paste(prot_names_short[rel6], expTimes[1], sep = '_'), 
-                   paste(prot_names_short[rel24], expTimes[2], sep = '_'), 
-                   paste(prot_names_short[rel48], expTimes[3], sep = '_'))
-    nodegroups <- rep(paste0(expTimes, "h"), times = c(length(rel6), length(rel24), length(rel48)))
+    nT <- length(expTimes)
     
+    # 1. Dynamically build the 'rel' list (nodes present at each time step)
+    rel <- list()
+    for(t in 1:nT) {
+      if (t == 1) {
+        # First time point: only sources
+        rel[[t]] <- sort(unique(c(P_selection(), Links_all()[[t]][, "source"])))
+      } else if (t == nT) {
+        # Last time point: only targets
+        rel[[t]] <- sort(unique(c(P_selection(), Links_all()[[t-1]][, "target"])))
+      } else {
+        # Middle time points: targets from the previous step, sources for the next step
+        rel[[t]] <- sort(unique(c(P_selection(), Links_all()[[t-1]][, "target"], Links_all()[[t]][, "source"])))
+      }
+    }
+    
+    # 2. Calculate continuous index offsets for D3
+    lenRel <- c(0, sapply(rel, length))
+    
+    # 3. Create node names and groups dynamically
+    nodenames <- unlist(lapply(1:nT, function(t) paste(prot_names_short[rel[[t]]], expTimes[t], sep = '_')))
+    nodegroups <- rep(paste0(expTimes, "h"), times = sapply(rel, length))
+    
+    # 4. Build the temporal links
     if(is.null(Links_all())){
       Links_temp <- data.frame(source = 0, target = 0, value = 1)
-    }else{
-      Links_temp <- lapply(1:2, function(t){
+    } else {
+      # Loop over the transitions (number of timepoints - 1)
+      Links_temp <- lapply(1:(nT - 1), function(t) {
         links <- Links_all()[[t]]
-        for(i in 1:length(rel[[t]])){
+        
+        # Re-index sources for this transition to match the flattened node list
+        for(i in seq_along(rel[[t]])){
           links[links[, 1] == rel[[t]][i], 1] <- i - 1 + sum(lenRel[1:t])
         }
-        for(i in 1:length(rel[[t+1]])){
+        # Re-index targets for this transition
+        for(i in seq_along(rel[[t+1]])){
           links[links[, 2] == rel[[t+1]][i], 2] <- i - 1 + sum(lenRel[1:(t+1)])
         }
-        links
+        return(links)
       })
       Links_temp <- do.call(rbind, Links_temp)
       Links_temp$value <- 1
     }
     
+    # 5. Assemble final Nodes dataframe
     Nodes_temp <- data.frame(name = nodenames, group = nodegroups, size = 0.3)
-    Nodes_temp$radius <- as.numeric(c(rel6, rel24, rel48))
+    Nodes_temp$radius <- as.numeric(unlist(rel))
+    
     list(Links_temp = Links_temp, Nodes_temp = Nodes_temp)
   })
 
@@ -497,24 +650,43 @@ server <- function(input, output) {
       paste('ProteinEffects-', Sys.Date(), '.csv', sep='')
     },
     content = function(con) {
-      if(is.null(P_selection())) {
-        df_res <- data.frame(source = "No protein selected!", target = NA, PValue = NA, 
-                             stringsAsFactors = FALSE)
-      }else{
-        Links_all_res <- Links_all()
-        df_res <- do.call(rbind, lapply(1:length(Links_all_res), function(i){
+      Links_all_res <- Links_all()
+      
+      # Safety Check 1: Is there any data?
+      if(is.null(P_selection()) || is.null(Links_all_res) || length(Links_all_res) == 0) {
+        df_res <- data.frame(source = "No data or no protein selected!", 
+                             target = NA, PValue = NA, stringsAsFactors = FALSE)
+      } else {
+        # Safety Check 2: Use seq_along to avoid the 1:0 trap
+        df_res <- do.call(rbind, lapply(seq_along(Links_all_res), function(i){
           links <- Links_all_res[[i]]
-          if(nrow(links) == 0) return(NULL)
-        df <- data.frame(InteractionType = ifelse(i == 1, "6h to 24h", "24h to 48h"),
-                         Source = prot_names_short[links[, "source"]], 
-                         Target = prot_names_short[links[, "target"]], 
-                         PValue = links[, "pvalue"], 
-                         stringsAsFactors = FALSE)
-          df
+          
+          # Skip if this specific transition is empty
+          if(is.null(links) || nrow(links) == 0) return(NULL)
+          
+          # Ensure we don't go out of bounds of expTimes
+          if (i + 1 > length(expTimes)) {
+            transition_label <- paste0(expTimes[i], "h to unknown")
+          } else {
+            transition_label <- paste0(expTimes[i], "h to ", expTimes[i+1], "h")
+          }
+          
+          data.frame(InteractionType = transition_label,
+                     Source = prot_names_short[links[, "source"]], 
+                     Target = prot_names_short[links[, "target"]], 
+                     PValue = links[, "pvalue"], 
+                     stringsAsFactors = FALSE)
         }))
       }
+      
+      # Handle cases where all transitions were NULL/empty
+      if(is.null(df_res)) {
+        df_res <- data.frame(Status = "No significant interactions found")
+      }
+      
       write.csv(df_res, con, row.names = FALSE)
-  })
+    }
+  )
 
   output$downloadSummary <- downloadHandler(
     filename = function() {
