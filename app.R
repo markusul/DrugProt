@@ -83,7 +83,9 @@ ui <- dashboardPage(
                               "is significantly associated with the later protein's, after adjusting for residual drug effects. These are reported on the ", strong("Protein Network"), " tab.")
                     ),
                     p("All evidence is pre-computed (approximately 62 million p-values across all 5,392 measured proteins, 122 treatments, and three time points), ",
-                      "so queries return instantly and you never need to download the underlying dataset.")
+                      "so queries return instantly and you never need to download the underlying dataset."),
+                    p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
+                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
                 )
               ),
               fluidRow(
@@ -105,7 +107,7 @@ ui <- dashboardPage(
                       tags$code("Y\u1d57\u207b"), " is the vector of differential expressions of all measured proteins at the preceding time point; and ", tags$code("\u03b5"), " is noise. ",
                       "The ", tags$code("\u03b1\u2070"), ", ", tags$code("\u03b2\u2070"), " terms are treatment intercepts; ", tags$code("\u03b1"), ", ", tags$code("\u03b2"),
                       " capture single-drug and drug-interaction effects; and ", tags$code("\u03b3"), " captures the temporal protein-to-protein dependencies."),
-                    p("Parameters are estimated with the de-sparsified Lasso, and group p-values are computed for the drug terms. ",
+                    p("Parameters are estimated with the de-sparsified Lasso, with group p-values for the drug terms and p-values for the protein terms. ",
                       "This is a simplified sketch: the full models, the precise definition of the aggregated differential expression ", tags$code("Y"),
                       " (which handles the unpaired measurements across time points), and all assumptions are given in the accompanying paper.")
                 )
@@ -113,8 +115,8 @@ ui <- dashboardPage(
               fluidRow(
                 box(title = "How a query works", status = "primary", solidHeader = TRUE, width = 6,
                     tags$ol(
-                      tags$li("On the ", strong("Settings"), " tab, choose a set of proteins of interest \u2014 type/select them, click ",
-                              em("pre Selected Set"), " to load the 26 IC50-predictive proteins from the paper, or upload a .txt file with one protein name per line."),
+                      tags$li("On the ", strong("Settings"), " tab, choose a set of proteins of interest \u2014 type/select them, click an ",
+                              em("Example"), " button to load either the two most IC50-predictive proteins (LMNA and RAB7A) or the full 26-protein set from the paper, or upload a .txt file with one protein name per line."),
                       tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
                       tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
                       tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs.")
@@ -122,8 +124,10 @@ ui <- dashboardPage(
                     p(em("Note:"), " for a queried set, both the parents and children of each protein are searched across the whole proteome, so the returned network can extend well beyond the proteins you selected.")
                 ),
                 box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,
+                    p(strong("Paper: "), a(href = "#", "[link to be added]", target = "_blank")),
                     p(strong("Web application: "), a(href = "https://ulme.shinyapps.io/DrugProt/", "ulme.shinyapps.io/DrugProt", target = "_blank")),
-                    p(strong("Source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
+                    p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
+                    p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/SDForest-Paper", "github.com/markusul/SDForest-Paper", target = "_blank")),
                     p(strong("Underlying dataset: "), "Sun et al. (2025), ",
                       a(href = "https://doi.org/10.1101/2025.02.07.637070", "doi.org/10.1101/2025.02.07.637070", target = "_blank"))
                 )
@@ -166,13 +170,20 @@ ui <- dashboardPage(
                                 choices = unname(prot_names_short), 
                                 multiple = TRUE, 
                                 options = list("live-search"=TRUE)),
-                    actionButton("preSelected", "pre Selected Set"),
+                    helpText("Start typing to search the 5,392 measured proteins, and select one or more to query. Proteins are named by their HGNC gene symbol (e.g. RAB7A, LMNA, MAP2K1); proteins quantified together as a group are joined with a slash (e.g. CALM1/CALM2/CALM3). The analysis is restricted to the selected set, which reduces the multiple-testing burden and increases power."),
+                    actionButton("preSelectedTwo", "Example: LMNA & RAB7A"),
+                    actionButton("preSelected", "Example: 26 IC50 proteins"),
                     actionButton("clear", "Clear Selection"), 
+                    helpText("\"Example: LMNA & RAB7A\" loads the two most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 26 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
                     fileInput("file", "Upload .txt File with Protein Names (one per line)", accept = c(".txt")),
+                    helpText("Alternatively, upload a plain-text file with one protein name per line (e.g. a curated pathway or complex). Names must match those in the dataset."),
                     h3("p-value Adjustments"),
                     numericInput("alpha", "Significance Level", value = 0.05, min = 0, max = 1, step = 0.0001),
+                    helpText("The threshold below which a corrected p-value is called significant (default 0.05)."),
                     selectInput("corectionDrug", "Correction Method for Drug Effects", choices = p.adjust.methods, selected = 'holm'),
+                    helpText("Multiple-testing correction applied to drug effects across the selected proteins and time points. Holm controls the family-wise error rate (default)."),
                     selectInput("corectionProtein", "Correction Method for Protein Effects", choices = p.adjust.methods, selected = 'BH'),
+                    helpText("Correction applied separately to the protein-to-protein dependencies. Benjamini-Hochberg controls the false discovery rate (default), which is better suited to the much larger number of protein-protein tests."),
                     width = 6), 
                 box(title = "Download P-values for selected Proteins", status = "primary", solidHeader = TRUE,
                   downloadButton("downloadPvalsDrug", "Download P-values of Drug Effects"), 
@@ -188,6 +199,17 @@ ui <- dashboardPage(
               checkboxGroupButtons("t", "Select time after drug administration to analyze", t_choice, t_choice, checkIcon = list(
                 yes = icon("square-check"),
                 no = icon("square"))),
+              helpText("Select one or more post-treatment time points (6, 24, 48 hours). Reported p-values are the minimum over the selected time points and the queried proteins."),
+              fluidRow(
+                box(title = "How to read the heatmap", status = "info", solidHeader = TRUE, width = 12, collapsible = TRUE,
+                    tags$ul(
+                      tags$li(strong("Diagonal cells"), " show the evidence that a ", strong("single drug"), " affects the selected protein set."),
+                      tags$li(strong("Off-diagonal cells"), " show the evidence for an ", strong("interaction"), " between a pair of drugs on the selected protein set."),
+                      tags$li(strong("Grey scale"), " encodes the corrected p-value (lighter = smaller p-value = stronger evidence)."),
+                      tags$li(strong("Black cells"), " mark drug pairs for which no experimental data exist (shown with a sentinel value of 2); they are not tested.")
+                    )
+                )
+              ),
               fluidRow(
                 box(title = "Drug Effect Heatmap", status = "primary", solidHeader = TRUE,
                     plotlyOutput("plotDrugEffects", height = 800), width = 6),
@@ -199,6 +221,19 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "ProteinNetwork", 
               h2("Protein Network"),
+              fluidRow(
+                box(title = "How to read the network", status = "info", solidHeader = TRUE, width = 12, collapsible = TRUE,
+                    tags$ul(
+                      tags$li("A directed edge from one protein to another indicates a ", strong("temporal dependency"),
+                              ": the earlier protein's differential expression is significantly associated with the later protein's, after adjusting for residual drug effects."),
+                      tags$li("In the ", strong("Summary Graph"), ", nodes are coloured by group: the proteins you queried (", em("Selected"),
+                              ") and the further proteins drawn in because they are significantly linked to your set (", em("Connected"), ")."),
+                      tags$li("In the ", strong("Temporal Graph"), ", each node is a (protein, time-point) pair, coloured by time point (6h, 24h, 48h), so the same protein can appear at several times."),
+                      tags$li("The network is searched across the ", strong("whole proteome"), ", so it routinely extends well beyond the proteins you selected."),
+                      tags$li(em("Reminder:"), " edge direction reflects temporal ordering, not a verified causal mechanism, and may be subject to unmeasured confounding.")
+                    )
+                )
+              ),
               fluidRow(
                 box(title = "Summary Graph", status = "primary", solidHeader = TRUE,
                     forceNetworkOutput("SummaryGraph", height = 800), width = 12)
@@ -232,9 +267,17 @@ server <- function(input, output) {
   load("data/proteinNetworkPval_pvalue.RData")
 
 
-  observeEvent(input$preSelected, {
+  observeEvent(input$preSelectedTwo, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
-                      selected = prot_names_short[prot_names_short %in% most_imp])
+                      selected = c("LMNA", "RAB7A"))
+  })
+  observeEvent(input$preSelected, {
+    most_imp_26 <- c("VDAC1", "CALM1/CALM2/CALM3", "IQGAP1", "RPS25", "PCBP2", "DDX39B",
+                     "GMPS", "MAP2K1", "KIF5B", "RPLP0", "CYCS", "SNRNP70", "PTMA", "LMNA",
+                     "SFPQ", "ACLY", "RALY", "RPSA", "RPL7", "SF3B3", "RAB7A", "SUPT16H",
+                     "MYL6", "RAP1B", "AKAP13", "HSP90B1")
+    updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
+                      selected = prot_names_short[prot_names_short %in% most_imp_26])
   })
   observeEvent(input$clear, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", selected = character(0))
