@@ -5,7 +5,6 @@ library(networkD3)
 library(grid)
 library(readxl)
 library(shinyWidgets)
-
 library(pryr)
 
 
@@ -57,7 +56,9 @@ t_choice <- paste0(expTimes, "h")
 #t_choice <- c("6h", "24h", "48h")
 
 ui <- dashboardPage(
-  dashboardHeader(title = "Drug Perturbations"),
+  dashboardHeader(title = tags$a(href='https://ulme.shinyapps.io/DrugProt/',
+                                 tags$img(src='drugprot-logo.svg', height = '50'))
+  ),
   dashboardSidebar(
     sidebarMenu(
       menuItem("About", tabName = "About", icon = icon("circle-info")),
@@ -319,9 +320,10 @@ server <- function(input, output) {
     pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
     names(pvec) <- sapply(treatment, replace_drug_ids)
     print(mem_used())
-    print(names(pvec))
     pvec
   })
+  
+  
   
   Links_all <- reactive({
     print("links")
@@ -426,6 +428,7 @@ server <- function(input, output) {
       if (t == 1) {
         # First time point: only sources
         rel[[t]] <- sort(unique(c(P_selection(), Links_all()[[t]][, "source"])))
+        
       } else if (t == nT) {
         # Last time point: only targets
         rel[[t]] <- sort(unique(c(P_selection(), Links_all()[[t-1]][, "target"])))
@@ -468,7 +471,16 @@ server <- function(input, output) {
     Nodes_temp <- data.frame(name = nodenames, group = nodegroups, size = 0.3)
     Nodes_temp$radius <- as.numeric(unlist(rel))
     
-    list(Links_temp = Links_temp, Nodes_temp = Nodes_temp)
+    
+    direction  <- unlist(lapply(1:(nT-1), function(t){
+      target <- unique(Links_all()[[t]][, "target"])
+      unlist(lapply(target, function(protein){
+        load(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))
+        unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
+      }))
+    }))
+    direction <- ifelse(direction >= 0, "blue",  "red")
+    list(Links_temp = Links_temp, Nodes_temp = Nodes_temp, direction = direction)
   })
 
   output$selectedTable <- renderTable({
@@ -663,12 +675,14 @@ server <- function(input, output) {
 
   output$TemporalGraph <- renderForceNetwork({
     if(is.null(P_selection())) return(NULL)
+
     fN <- forceNetwork(Links = TempGraph()$Links_temp, Nodes = TempGraph()$Nodes_temp,
              Source = "source", Target = "target",
              Value = "value", NodeID = "name",
              Group = "group", opacity = 0.99,# Nodesize = 3,
              arrows = T, zoom = T, legend=T, charge = -15,
              opacityNoHover = TRUE,
+             linkColour = TempGraph()$direction,
              colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10);"))
     fN
   })
