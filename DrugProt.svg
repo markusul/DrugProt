@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+
+    <linearGradient id="coralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b8b" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#bgGrad)" rx="16" />
+
+  <g transform="translate(20, 0)">
+    <g transform="translate(180, 175) rotate(-30)">
+      
+      <g stroke="#38bdf8" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round">
+        <line x1="0" y1="-15" x2="35" y2="-30" />
+        <line x1="0" y1="15" x2="40" y2="25" />
+        <line x1="35" y1="-30" x2="85" y2="-15" />
+        <line x1="40" y1="25" x2="80" y2="35" />
+        <line x1="35" y1="-30" x2="40" y2="25" />
+        <line x1="85" y1="-15" x2="125" y2="10" />
+        <line x1="80" y1="35" x2="125" y2="10" />
+        <line x1="40" y1="25" x2="85" y2="-15" />
+      </g>
+
+      <path d="M 0,-25 L -45,-25 A 25,25 0 0,0 -45,25 L 0,25 Z" fill="url(#coralGrad)" />
+      
+      <line x1="0" y1="-25" x2="0" y2="25" stroke="#0f172a" stroke-width="2" opacity="0.5"/>
+
+      <g fill="url(#tealGrad)" filter="url(#glow)">
+        <circle cx="35" cy="-30" r="7" />
+        <circle cx="40" cy="25" r="8" />
+        <circle cx="85" cy="-15" r="6" />
+        <circle cx="80" cy="35" r="7" />
+        <circle cx="125" cy="10" r="10" fill="#38bdf8" />
+      </g>
+
+      <g fill="#2dd4bf" opacity="0.6">
+        <circle cx="65" cy="-45" r="3" />
+        <circle cx="110" cy="-30" r="2" />
+        <circle cx="145" cy="30" r="3.5" opacity="0.4" />
+        <circle cx="105" cy="55" r="2.5" />
+      </g>
+    </g>
+
+    <text x="360" y="185" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="64" fill="#ffffff" font-weight="800" letter-spacing="-0.5">
+      Drug<tspan fill="#2dd4bf" font-weight="300">-Prot</tspan>
+    </text>
+
+    <text x="364" y="222" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#94a3b8" letter-spacing="2.5">
+      DYNAMIC PROTEOMIC NETWORKS
+    </text>
+  </g>
+</svg>
