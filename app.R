@@ -7,9 +7,9 @@ library(readxl)
 library(shinyWidgets)
 library(pryr)
 
-# replace drug ids by names
-load('data/drugLookup.RData')
-load('data/Coef/drugs/treatNames.RData')
+source("dbAccess.R")
+db   <- dp_connect()
+meta <- dp_metadata(db)
 
 replace_drug_ids <- function(x) {
   # 1. Split the string by backticks and underscores
@@ -45,15 +45,21 @@ replace_drug_ids <- function(x) {
   paste(names, collapse = ":")
 }
 
-# load ordering of drugs (sort drugs with experiments together)
-load('data/order.RData')
-nDrugs <- length(drugOrder)
-drugOrder <- sapply(drugOrder, replace_drug_ids)
-nProtein <- length(prot_names_short)
+prot_names_short <- meta$prot_names_short
+treatment        <- meta$treatment
+treatNames       <- meta$treatNames
+expTimes         <- meta$expTimes
+drugOrder        <- meta$drugOrder
+nProtein         <- meta$nProtein
+nTreatment       <- meta$nTreatment
+nDrugs           <- length(drugOrder)
 
-#choices of timepoints for drug effects
-t_choice <- paste0(expTimes, "h")
-#t_choice <- c("6h", "24h", "48h")
+tmp <- dbGetQuery(db, "SELECT id, name FROM drug_lookup")
+drug_lookup <- setNames(tmp$name, tmp$id)
+
+drugOrder <- sapply(drugOrder, replace_drug_ids)
+t_choice  <- paste0(expTimes, "h")
+
 
 ui <- dashboardPage(
   dashboardHeader(title = tags$a(href='https://ulme.shinyapps.io/DrugProt/',
@@ -263,13 +269,6 @@ ui <- dashboardPage(
 server <- function(input, output) {
   # control panel
   print("Start Server")
-  
-  # load data for Drug Effects
-  #load("data/DrugEffects.RData")
-  #load("data/proteinSelection.RData")
-  #load("data/proteinNetworkPval.RData")
-  load("data/proteinNetworkPval_pvalue.RData")
-
 
   observeEvent(input$preSelectedTwo, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
@@ -313,10 +312,10 @@ server <- function(input, output) {
     if(is.null(input$t)) return(NULL)
     t_selection <- t_choice %in% input$t
     print(mem_used())
-    load("data/DrugEffects.RData")
+    
+    selPvecs <- dp_drug_selPvecs(db, P_selection(), nTreatment, length(expTimes))
     
     #adjust p values of drug effects on selected proteins
-    selPvecs <- array(allPvecs[, , P_selection()], dim = c(dim(allPvecs)[1:2], length(P_selection())))
     selPvecs <- array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
     
     # collect min p value of drug effect over proteins and time points
@@ -334,39 +333,8 @@ server <- function(input, output) {
     selection <- P_selection()
     
     # select relevant p-values
-    #Pval_sel <- lapply(Pval_all, function(links){
-    #  rel.Links <- links$source %in% P_selection() | links$target %in% P_selection()
-    #  links[rel.Links, ]
-    #})
-    
-    # low memory version
-    # select relevant p-values
     print(mem_used())
-    #Pval_sel <- lapply(t_choice[-1], function(tp){
-    Pval_sel <- lapply(1:(length(expTimes)-1), function(tp){
-      #load(paste0("data/proteinNetworkPval_pvalue_", tp, ".RData"))
-      
-      print("relevant p values")
-      source_idx <- as.vector(outer(selection, nProtein * (0:(nProtein-1)), "+"))
-      target_idx <- rep((selection - 1) * nProtein, each = nProtein) + 1:nProtein 
-      
-      # Combine and unique
-      rel.Links <- sort(unique(c(source_idx, target_idx)))
-      current_pvals <- pvalue[rel.Links, tp]
-      
-      # We only care about significant links (we still correct for all of them)
-      keep_idx <- which(current_pvals < input$alpha)
-      final_indices <- rel.Links[keep_idx]
-      final_pvals   <- current_pvals[keep_idx]
-      
-      final_source <- (final_indices - 1) %% nProtein + 1
-      final_target <- ceiling(final_indices / nProtein)
-      
-      print(mem_used())
-      data.frame(source = final_source, 
-                 target = final_target, 
-                 pvalue = final_pvals)
-    })
+    Pval_sel <- dp_net_pvals(db, selection, input$alpha, nProtein, length(expTimes) - 1)
     
     print("correction")
     # p-value correction
@@ -475,12 +443,8 @@ server <- function(input, output) {
     Pcoef  <- unlist(lapply(1:(nT-1), function(t){
       target <- unique(Links_all()[[t]][, "target"])
       unlist(lapply(target, function(protein){
-        if (file.exists(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))){
-          load(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))
-          unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
-        }else{
-          rep(0, sum(Links_all()[[t]][, "target"] == protein))
-        }
+        bhat <- dp_protein_bhat(db, protein, time_idx = t + 1, nProtein)
+        unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
         
       }))
     }))
@@ -605,12 +569,11 @@ server <- function(input, output) {
     df <- data.frame(Protein = unname(prot_names_short[P_selection()]), 
                      stringsAsFactors = FALSE)
     for(i in selTreat){
-      load(paste0("data/Coef/drugs/", i, ".RData"))
+      dEff  <- dp_drug_dEff(db, i, nProtein, length(expTimes))
       DCoef <- dEff[P_selection(), t_selection]
+      
       DCoef <- matrix(DCoef, nrow = length(P_selection()))
-      print(DCoef)
       DCoef <- rowMeans(DCoef)
-      print(DCoef)
       
       df <- cbind(df, DCoef)
     }
