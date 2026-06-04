@@ -7,9 +7,9 @@ library(readxl)
 library(shinyWidgets)
 library(pryr)
 
-
 # replace drug ids by names
 load('data/drugLookup.RData')
+load('data/Coef/drugs/treatNames.RData')
 
 replace_drug_ids <- function(x) {
   # 1. Split the string by backticks and underscores
@@ -51,7 +51,7 @@ nDrugs <- length(drugOrder)
 drugOrder <- sapply(drugOrder, replace_drug_ids)
 nProtein <- length(prot_names_short)
 
-#choises of timepoints for drug effects
+#choices of timepoints for drug effects
 t_choice <- paste0(expTimes, "h")
 #t_choice <- c("6h", "24h", "48h")
 
@@ -213,7 +213,10 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 box(title = "Drug Effect Heatmap", status = "primary", solidHeader = TRUE,
-                    plotlyOutput("plotDrugEffects", height = 800), width = 6),
+                    plotlyOutput("plotDrugEffects", height = 800), width = 6,
+                    selectInput("selTreat", "Effects of treatment", choices = treatNames),
+                    tableOutput("DrugEffects")
+                    ),
                 box(title = "Significant Single Drugs", status = "primary", solidHeader = TRUE,
                     tableOutput("singleDrugs"), width = 3),
                 box(title = "Significant Drug Interactions", status = "primary", solidHeader = TRUE,
@@ -387,9 +390,6 @@ server <- function(input, output) {
       start_idx <- end_idx + 1
     }
     
-    #Pval_sel[[1]][, "pvalue"] <- Tpval[1:nPpertime[1]]
-    #Pval_sel[[2]][, "pvalue"] <- Tpval[(nPpertime[1] + 1):sum(nPpertime)]
-    
     # convert p-values to links
     Links_all <- lapply(Pval_sel, function(links) links[links$pvalue < input$alpha, ])
     
@@ -472,14 +472,21 @@ server <- function(input, output) {
     Nodes_temp$radius <- as.numeric(unlist(rel))
     
     
-    direction  <- unlist(lapply(1:(nT-1), function(t){
+    Pcoef  <- unlist(lapply(1:(nT-1), function(t){
       target <- unique(Links_all()[[t]][, "target"])
       unlist(lapply(target, function(protein){
-        load(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))
-        unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
+        if (file.exists(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))){
+          load(paste0("data/Coef/proteins/", protein, '_', expTimes[t+1],  ".RData"))
+          unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
+        }else{
+          rep(0, sum(Links_all()[[t]][, "target"] == protein))
+        }
+        
       }))
     }))
-    direction <- ifelse(direction >= 0, "blue",  "red")
+    direction <- rep("darkgrey", length(Pcoef))
+    direction[Pcoef > 0] <- "blue"
+    direction[Pcoef < 0] <- "red"
     list(Links_temp = Links_temp, Nodes_temp = Nodes_temp, direction = direction)
   })
 
@@ -586,6 +593,82 @@ server <- function(input, output) {
     HTML(htmlTable)
   })
 
+  output$DrugEffects <- renderUI({
+    if(length(P_selection()) == 0) return(NULL)
+    if(is.null(pvec())) return(NULL)
+    
+    t_selection <- t_choice %in% input$t
+    
+    selTreat <- strsplit(input$selTreat, ":")[[1]]
+    selTreat <- which(treatNames %in% c(selTreat, input$selTreat))
+
+    df <- data.frame(Protein = unname(prot_names_short[P_selection()]), 
+                     stringsAsFactors = FALSE)
+    for(i in selTreat){
+      load(paste0("data/Coef/drugs/", i, ".RData"))
+      DCoef <- dEff[P_selection(), t_selection]
+      DCoef <- matrix(DCoef, nrow = length(P_selection()))
+      print(DCoef)
+      DCoef <- rowMeans(DCoef)
+      print(DCoef)
+      
+      df <- cbind(df, DCoef)
+    }
+    
+    names(df) <- c("Protein", names(treatNames[selTreat]))
+    
+    # Build the table header dynamically
+    headers_html <- paste0(
+      "<thead><tr>",
+      paste(sapply(names(df), function(colname) paste0("<th>", colname, "</th>")), collapse = ""),
+      "</tr></thead>"
+    )
+    
+    # Build the table body dynamically
+    body_html <- paste0(
+      "<tbody>",
+      paste(
+        sapply(1:nrow(df), function(i) {
+          # First column is always the Protein name (no color)
+          row_html <- paste0('<tr><td>', df[i, 1], '</td>')
+          
+          # Loop through the remaining columns
+          if (ncol(df) > 1) {
+            cells_html <- sapply(2:ncol(df), function(j) {
+              val_num <- df[i, j] # No need for as.numeric() anymore!
+              
+              # Determine color based on positive/negative
+              if (!is.na(val_num) && val_num < 0) {
+                color <- ' style="background-color: #ffcccc;"' # Light Red
+              } else if (!is.na(val_num) && val_num > 0) {
+                color <- ' style="background-color: #cce5ff;"' # Light Blue
+              } else {
+                color <- ''
+              }
+              
+              # Format the number nicely
+              formatted_val <- ifelse(!is.na(val_num), format(val_num, digits = 4), "")
+              
+              paste0('<td', color, '>', formatted_val, '</td>')
+            })
+            # Append the dEff cells to the row
+            row_html <- paste0(row_html, paste(cells_html, collapse = ""))
+          }
+          
+          row_html <- paste0(row_html, '</tr>')
+          return(row_html)
+        }),
+        collapse = ""
+      ),
+      "</tbody>"
+    )
+    
+    # Combine header and body into the final table
+    htmlTable <- paste0('<table class="table table-bordered">', headers_html, body_html, '</table>')
+    
+    HTML(htmlTable)
+  })
+  
   output$interactions <- renderUI({
     if(length(P_selection()) == 0) return(NULL)
     if(is.null(pvec())) return(NULL)
