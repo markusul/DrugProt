@@ -225,6 +225,8 @@ ui <- dashboardPage(
                 box(title = "Drug Effect Heatmap", status = "primary", solidHeader = TRUE,
                     plotlyOutput("plotDrugEffects", height = 800), width = 6,
                     selectInput("selTreat", "Effects of treatment", choices = treatNames),
+                    helpText("We show the average treatment effect for the concentrations in the data at the time point of highest significance."),
+                    helpText("The format is: effect (time point p-value)."),
                     tableOutput("DrugEffects")
                     ),
                 box(title = "Significant Single Drugs", status = "primary", solidHeader = TRUE,
@@ -243,6 +245,7 @@ ui <- dashboardPage(
                       tags$li("In the ", strong("Summary Graph"), ", nodes are coloured by group: the proteins you queried (", em("Selected"),
                               ") and the further proteins drawn in because they are significantly linked to your set (", em("Connected"), ")."),
                       tags$li("In the ", strong("Temporal Graph"), ", each node is a (protein, time-point) pair, coloured by time point (6h, 24h, 48h), so the same protein can appear at several times."),
+                      tags$li("In the ", strong("Temporal Graph"), ", each connection is coloured according to the sign of the estimated effect", tags$code("y\u1d57"), ". Negative effects are ", tags$span(style = "color: red; font-weight: bold;", "red"), ", while positive effects are ", tags$span(style = "color: blue; font-weight: bold;", "blue"), "."),
                       tags$li("The network is searched across the ", strong("whole proteome"), ", so it routinely extends well beyond the proteins you selected."),
                       tags$li(em("Reminder:"), " edge direction reflects temporal ordering, not a verified causal mechanism, and may be subject to unmeasured confounding.")
                     )
@@ -312,30 +315,35 @@ server <- function(input, output) {
   })
 
   
-
-  
-  pvec <- reactive({
-    print("pvec")
-    if(is.null(input$t)) return(NULL)
-    t_selection <- t_choice %in% input$t
-    print(mem_used())
+  adjusted_pvecs <- reactive({
+    if(is.null(P_selection())) return(NULL)
+    print("Fetching and adjusting p-values from DB...")
     
     selPvecs <- dp_drug_selPvecs(db, P_selection(), nTreatment, length(expTimes))
-    
-    #adjust p values of drug effects on selected proteins
-    selPvecs <- array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
-    
-    # collect min p value of drug effect over proteins and time points
-    min_loc <- apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
+    array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
+  })
+  
+  pvec <- reactive({
+    if(is.null(adjusted_pvecs()) || is.null(input$t)) return(NULL)
+    t_selection <- t_choice %in% input$t
+
+    selPvecs <- adjusted_pvecs()
     
     pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
     names(pvec) <- sapply(treatment, replace_drug_ids)
-    print(mem_used())
-    print(t_selection)
     pvec
   })
   
-  
+  min_loc <- reactive({
+    if(is.null(adjusted_pvecs()) || is.null(input$t)) return(NULL)
+    
+    t_selection <- t_choice %in% input$t
+    selPvecs <- adjusted_pvecs()
+    
+    min_sel <- apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
+
+    apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
+  })
   
   Links_all <- reactive({
     print("links")
@@ -588,6 +596,7 @@ server <- function(input, output) {
   })
 
   output$DrugEffects <- renderUI({
+    print("drugEffects")
     if(length(P_selection()) == 0) return(NULL)
     if(is.null(pvec())) return(NULL)
     
@@ -603,12 +612,23 @@ server <- function(input, output) {
       DCoef <- dEff[P_selection(), t_selection]
       
       DCoef <- matrix(DCoef, nrow = length(P_selection()))
-      DCoef <- rowMeans(DCoef)
+      DCoef <- unlist(lapply(1:length(P_selection()), function(t) DCoef[t, min_loc()[i, t]]))
       
       df <- cbind(df, DCoef)
     }
-    
     names(df) <- c("Protein", names(treatNames[selTreat]))
+    
+    
+    locations <- matrix(min_loc()[selTreat, ], nrow = length(selTreat))
+    times <- t(apply(locations, 1:2, function(ii)t_choice[t_selection][ii]))
+    
+    
+    seladjP <- matrix(0, nrow = nrow(times), ncol = ncol(times))
+    for(i in 1:nrow(times)){
+      for(j in 1:ncol(times)){
+        seladjP[i, j] <- adjusted_pvecs()[selTreat[j], which(t_selection)[min_loc()[selTreat[j], i]], i]
+      }
+    }
     
     # Build the table header dynamically
     headers_html <- paste0(
@@ -628,21 +648,39 @@ server <- function(input, output) {
           # Loop through the remaining columns
           if (ncol(df) > 1) {
             cells_html <- sapply(2:ncol(df), function(j) {
-              val_num <- df[i, j] # No need for as.numeric() anymore!
+              val_num <- df[i, j] # The coefficient (dEff)
               
-              # Determine color based on positive/negative
-              if (!is.na(val_num) && val_num < 0) {
-                color <- ' style="background-color: #ffcccc;"' # Light Red
-              } else if (!is.na(val_num) && val_num > 0) {
-                color <- ' style="background-color: #cce5ff;"' # Light Blue
+              # Extract corresponding time and p-value
+              # We use j - 1 because times and seladjP don't have the Protein column
+              time_val <- times[i, j - 1]
+              pval_num <- seladjP[i, j - 1]
+              
+              # Determine color based on positive/negative ONLY if p-value is significant
+              if (!is.na(val_num) && !is.na(pval_num) && pval_num < input$alpha) {
+                if (val_num < 0) {
+                  color <- ' style="background-color: #ffcccc;"' # Light Red
+                } else if (val_num > 0) {
+                  color <- ' style="background-color: #cce5ff;"' # Light Blue
+                } else {
+                  color <- ''
+                }
               } else {
-                color <- ''
+                color <- '' # No color if it's NA or not significant
               }
               
-              # Format the number nicely
-              formatted_val <- ifelse(!is.na(val_num), format(val_num, digits = 4), "")
+              # Format the numbers nicely and merge them
+              if (!is.na(val_num)) {
+                formatted_coef <- format(val_num, digits = 4)
+                # Using signif() for p-values keeps them clean, especially if very small
+                formatted_pval <- signif(pval_num, digits = 3) 
+                
+                # Combine into: "coef (time pval)"
+                display_str <- paste0(formatted_coef, " (", time_val, " ", formatted_pval, ")")
+              } else {
+                display_str <- ""
+              }
               
-              paste0('<td', color, '>', formatted_val, '</td>')
+              paste0('<td', color, '>', display_str, '</td>')
             })
             # Append the dEff cells to the row
             row_html <- paste0(row_html, paste(cells_html, collapse = ""))
@@ -859,6 +897,22 @@ server <- function(input, output) {
                    opacityNoHover = TRUE,
                    colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10);"))
       saveNetwork(fN, file = con)
+  })
+  
+  # Automatically select the treatment with the lowest p-value whenever pvec updates
+  observeEvent(pvec(), {
+    req(pvec()) # Ensure pvec is calculated and not NULL
+    
+    # 1. Find the actual text name of the drug combination with the minimum p-value
+    # Using names() is much safer than positional indexing (like treatNames[which.min(...)])
+    best_treatment <- treatNames[which.min(pvec())]
+    
+    # 2. Update the UI drop-down menu on the fly
+    updateSelectInput(
+      session = getDefaultReactiveDomain(), 
+      inputId = "selTreat", 
+      selected = best_treatment
+    )
   })
 }
 

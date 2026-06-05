@@ -5,8 +5,9 @@ account: ulme
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16086999
-bundleId: 11189896
+bundleId: 12087886
 url: https://ulme.shinyapps.io/DrugProt/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: dbAccess.R
