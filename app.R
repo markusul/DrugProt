@@ -66,6 +66,8 @@ t_choice  <- paste0(expTimes, "h")
 
 
 ui <- dashboardPage(
+  title = "Drug-Prot",
+  
   dashboardHeader(title = tags$a(href='https://ulme.shinyapps.io/DrugProt/',
                                  tags$img(src='drugprot-logo.svg', height = '50'))
   ),
