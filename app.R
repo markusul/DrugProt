@@ -7,8 +7,12 @@ library(readxl)
 library(shinyWidgets)
 library(pryr)
 
-source("dbAccess.R")
-db   <- dp_connect()
+#source("dbAccess.R")
+#db   <- dp_connect()
+#meta <- dp_metadata(db)
+
+source("dbAccess_parquet.R")
+db <- dp_connect("parquet", in_memory_network = FALSE, memory_limit = "3GB")
 meta <- dp_metadata(db)
 
 replace_drug_ids <- function(x) {
@@ -307,6 +311,9 @@ server <- function(input, output) {
     sel
   })
 
+  
+
+  
   pvec <- reactive({
     print("pvec")
     if(is.null(input$t)) return(NULL)
@@ -319,9 +326,12 @@ server <- function(input, output) {
     selPvecs <- array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
     
     # collect min p value of drug effect over proteins and time points
+    min_loc <- apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
+    
     pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
     names(pvec) <- sapply(treatment, replace_drug_ids)
     print(mem_used())
+    print(t_selection)
     pvec
   })
   
@@ -362,11 +372,12 @@ server <- function(input, output) {
     Links_all <- lapply(Pval_sel, function(links) links[links$pvalue < input$alpha, ])
     
     if(sum(sapply(Links_all, nrow)) == 0) return(NULL)
-    
+    print(mem_used())
     Links_all
   })
 
   SummGraph <- reactive({
+    print("SumGraph")
     if(is.null(Links_all())) return(NULL)
     Links_sum <- do.call(rbind, Links_all())
     Links_sum[, "source"] <- Links_sum[, "source"] - 1
@@ -386,6 +397,7 @@ server <- function(input, output) {
   
   # temporal graph
   TempGraph <- reactive({
+    print("TempGraph")
     # if(is.null(Links_all())) return(NULL)
     
     nT <- length(expTimes)
@@ -440,17 +452,35 @@ server <- function(input, output) {
     Nodes_temp$radius <- as.numeric(unlist(rel))
     
     
-    Pcoef  <- unlist(lapply(1:(nT-1), function(t){
-      target <- unique(Links_all()[[t]][, "target"])
-      unlist(lapply(target, function(protein){
-        bhat <- dp_protein_bhat(db, protein, time_idx = t + 1, nProtein)
-        unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
-        
-      }))
+    #Pcoef  <- unlist(lapply(1:(nT-1), function(t){
+    #  target <- unique(Links_all()[[t]][, "target"])
+    #  unlist(lapply(target, function(protein){
+    #    bhat <- dp_protein_bhat(db, protein, time_idx = t + 1, nProtein)
+    #    unname(bhat[Links_all()[[t]][Links_all()[[t]][, "target"] == protein, "source"]])
+    #    
+    #  }))
+    #}))
+    
+    Pcoef <- unlist(lapply(1:(nT-1), function(t) {
+      L <- Links_all()[[t]]
+      if (nrow(L) == 0) return(numeric(0))
+      ti <- t + 1
+      targets <- unique(L[, "target"])
+      # ONE query for all targets in this transition:
+      coef_df <- dp_protein_coef_bulk(db, targets, ti)   # cols: target, source, coef
+      # look up each edge's coef by (target, source); absent -> 0
+      key  <- paste(L[, "target"], L[, "source"], sep = "_")
+      cmap <- setNames(coef_df$coef, paste(coef_df$target, coef_df$source, sep = "_"))
+      out  <- cmap[key]
+      out[is.na(out)] <- 0
+      unname(out)
     }))
+
     direction <- rep("darkgrey", length(Pcoef))
-    direction[Pcoef > 0] <- "blue"
-    direction[Pcoef < 0] <- "red"
+    direction[Pcoef == 1] <- "blue"
+    direction[Pcoef == 0] <- "red"
+    
+    print(mem_used())
     list(Links_temp = Links_temp, Nodes_temp = Nodes_temp, direction = direction)
   })
 
