@@ -791,15 +791,203 @@ server <- function(input, output) {
 
   output$TemporalGraph <- renderForceNetwork({
     if(is.null(P_selection())) return(NULL)
-
+    
     fN <- forceNetwork(Links = TempGraph()$Links_temp, Nodes = TempGraph()$Nodes_temp,
-             Source = "source", Target = "target",
-             Value = "value", NodeID = "name",
-             Group = "group", opacity = 0.99,# Nodesize = 3,
-             arrows = T, zoom = T, legend=T, charge = -15,
-             opacityNoHover = TRUE,
-             linkColour = TempGraph()$direction,
-             colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10);"))
+                       Source = "source", Target = "target",
+                       Value = "value", NodeID = "name",
+                       Group = "group", opacity = 0.99,# Nodesize = 3,
+                       arrows = T, zoom = T, legend=T, charge = -15,
+                       opacityNoHover = TRUE,
+                       linkColour = TempGraph()$direction,
+                       colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10);"))
+    # Inject custom D3 JavaScript with Capture-Phase Safety Windows
+    fN <- htmlwidgets::onRender(fN, '
+      function(el, x) {
+        var nodes = d3.select(el).selectAll(".node").data();
+        
+        // 1. Create the UI panel and buttons
+        var panel = document.createElement("div");
+        panel.style.position = "absolute";
+        panel.style.bottom = "20px";
+        panel.style.left = "50%";
+        panel.style.transform = "translateX(-50%)";
+        panel.style.display = "flex";
+        panel.style.gap = "15px";
+        panel.style.zIndex = "1000";
+        el.appendChild(panel);
+        
+        function styleButton(btn, text, bgColor) {
+          btn.innerHTML = text;
+          btn.style.padding = "10px 18px";
+          btn.style.fontSize = "14px";
+          btn.style.fontWeight = "bold";
+          btn.style.cursor = "pointer";
+          btn.style.borderRadius = "6px";
+          btn.style.border = "1px solid #ccc";
+          btn.style.backgroundColor = bgColor;
+          btn.style.boxShadow = "0px 2px 4px rgba(0,0,0,0.1)";
+          
+          // Stop accidental background graph dragging
+          btn.addEventListener("mousedown", function(e) { e.stopPropagation(); });
+          btn.addEventListener("touchstart", function(e) { e.stopPropagation(); });
+          
+          panel.appendChild(btn);
+        }
+        
+        var btnSep = document.createElement("button");
+        styleButton(btnSep, "Separate by time-point", "#fff");
+        
+        var btnRelax = document.createElement("button");
+        styleButton(btnRelax, "Relax", "#fff");
+        
+        var btnFree = document.createElement("button");
+        styleButton(btnFree, "Free Up", "#e0f7fa"); 
+        
+        // 2. State Tracking and Memory
+        var isSeparating = false;
+        var isRelaxing = false;
+        var initialPositions = {};
+        var memorySaved = false;
+        
+        var dragTarget = null;
+        var dragX = 0;
+        var dragY = 0;
+        
+        function saveMemory() {
+          if (!memorySaved) {
+            nodes.forEach(function(d) {
+              initialPositions[d.index] = { x: d.x, y: d.y };
+            });
+            memorySaved = true;
+          }
+        }
+        
+        // 3. Persistent Wake Engine using D3 Drag State
+        function sendDragStart() {
+          try {
+            dragTarget = el.querySelector(".node circle") || el.querySelector(".node");
+            if (dragTarget) {
+              var rect = dragTarget.getBoundingClientRect();
+              dragX = rect.left + rect.width / 2;
+              dragY = rect.top + rect.height / 2;
+              
+              dragTarget.dispatchEvent(new MouseEvent("mousedown", {
+                bubbles: true, cancelable: true, view: window, button: 0, clientX: dragX, clientY: dragY
+              }));
+            }
+          } catch(e) {}
+        }
+        
+        function sendDragEnd() {
+          try {
+            if (dragTarget) {
+              window.dispatchEvent(new MouseEvent("mouseup", {
+                bubbles: true, cancelable: true, view: window, button: 0, clientX: dragX, clientY: dragY
+              }));
+              dragTarget = null;
+            }
+          } catch(e) {}
+        }
+        
+        // 4. Interaction Handlers
+        function startInteraction(type) {
+          saveMemory();
+          if (type === "sep") isSeparating = true;
+          if (type === "relax") isRelaxing = true;
+          
+          // Pre-lock nodes to current position so they do not jump when beam engages
+          nodes.forEach(function(d) {
+            if (d.group === "6h" || d.group === "48h") {
+              d.fx = d.x;
+              d.fy = d.y;
+            }
+          });
+          
+          sendDragStart();
+        }
+        
+        function stopInteraction() {
+          if (!isSeparating && !isRelaxing) return;
+          isSeparating = false;
+          isRelaxing = false;
+          
+          sendDragEnd();
+          
+          // Nodes remain cleanly pinned exactly where you let go
+          nodes.forEach(function(d) {
+            if (d.group === "6h" || d.group === "48h") {
+              if (d.fx !== null) d.x = d.fx;
+              if (d.fy !== null) d.y = d.fy;
+            }
+          });
+        }
+        
+        // 5. Global Capture Phase Listeners (Master Kill Switch)
+        btnSep.addEventListener("mousedown", function() { startInteraction("sep"); });
+        btnSep.addEventListener("touchstart", function(e) { e.preventDefault(); startInteraction("sep"); });
+        
+        btnRelax.addEventListener("mousedown", function() { startInteraction("relax"); });
+        btnRelax.addEventListener("touchstart", function(e) { e.preventDefault(); startInteraction("relax"); });
+        
+        // The true argument forces capture phase execution to intercept swallowed events
+        window.addEventListener("mouseup", stopInteraction, true);
+        window.addEventListener("touchend", stopInteraction, true);
+        window.addEventListener("blur", stopInteraction, true);
+        
+        // 6. Free Up Button
+        btnFree.addEventListener("click", function() {
+          isSeparating = false;
+          isRelaxing = false;
+          
+          nodes.forEach(function(d) { d.fx = null; d.fy = null; });
+          
+          sendDragStart();
+          setTimeout(function() {
+            sendDragEnd();
+            nodes.forEach(function(d) { d.fx = null; d.fy = null; });
+          }, 300);
+        });
+        
+        // 7. Custom Physics Loop (Tractor Beam Animation)
+        d3.timer(function() {
+          if (!isSeparating && !isRelaxing) return;
+          
+          var width = el.clientWidth;
+          var speed = 0.05; 
+          
+          // Micro-pulse the drag to forcefully keep the main D3 simulation awake
+          if (dragTarget) {
+            dragX += 0.1;
+            window.dispatchEvent(new MouseEvent("mousemove", {
+              bubbles: true, cancelable: true, view: window, button: 0, clientX: dragX, clientY: dragY
+            }));
+          }
+          
+          nodes.forEach(function(d) {
+            if (d.group === "6h" || d.group === "48h") {
+              
+              // Failsafe initialization
+              if (d.fx == null) d.fx = d.x;
+              if (d.fy == null) d.fy = d.y;
+              
+              if (isSeparating) {
+                var targetX = (d.group === "6h") ? width * 0.1 : width * 0.9;
+                // Animate absolute locks instead of weak velocity
+                d.fx += (targetX - d.fx) * speed;
+                
+              } else if (isRelaxing) {
+                var origX = initialPositions[d.index].x;
+                var origY = initialPositions[d.index].y;
+                
+                d.fx += (origX - d.fx) * speed;
+                d.fy += (origY - d.fy) * speed;
+              }
+            }
+          });
+        });
+      }
+    ')
+    
     fN
   })
 
