@@ -94,7 +94,7 @@ ui <- dashboardPage(
                       tags$li(strong("Temporal dependencies between proteins:"), " a directed network in which an edge from one protein to another indicates that the earlier protein's differential expression ",
                               "is significantly associated with the later protein's, after adjusting for residual drug effects. These are reported on the ", strong("Protein Network"), " tab.")
                     ),
-                    p("All evidence is pre-computed (approximately 62 million p-values across all 5,392 measured proteins, 122 treatments, and three time points), ",
+                    p("All evidence is pre-computed (approximately 60 million p-values across all 5,392 measured proteins, 122 treatments, and three time points), ",
                       "so queries return instantly and you never need to download the underlying dataset."),
                     p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
                       "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
