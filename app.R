@@ -5,7 +5,6 @@ library(networkD3)
 library(grid)
 library(readxl)
 library(shinyWidgets)
-library(pryr)
 
 #source("dbAccess.R")
 #db   <- dp_connect()
@@ -140,7 +139,12 @@ ui <- dashboardPage(
                     p(strong("Paper: "), a(href = "#", "[link to be added]", target = "_blank")),
                     p(strong("Web application: "), a(href = "https://ulme.shinyapps.io/DrugProt/", "ulme.shinyapps.io/DrugProt", target = "_blank")),
                     p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
-                    p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/SDForest-Paper", "github.com/markusul/SDForest-Paper", target = "_blank")),
+                    p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/DrugProt-Paper", "github.com/markusul/DrugProt-Paper", target = "_blank")),
+                    p(strong("Complete evidence (all p-values + effects): "),
+                      a(href = "https://polybox.ethz.ch/index.php/s/8YKDWxfsYpEksSR",
+                        "download archive", target = "_blank"),
+                      " \u2014 raw, uncorrected p-values and effect estimates for every protein, ",
+                      "drug, and time point (includes a README describing the columns)."),
                     p(strong("Underlying dataset: "), "Sun et al. (2025), ",
                       a(href = "https://doi.org/10.1101/2025.02.07.637070", "doi.org/10.1101/2025.02.07.637070", target = "_blank"))
                 )
@@ -353,7 +357,6 @@ server <- function(input, output) {
     selection <- P_selection()
     
     # select relevant p-values
-    print(mem_used())
     Pval_sel <- dp_net_pvals(db, selection, input$alpha, nProtein, length(expTimes) - 1)
     
     print("correction")
@@ -382,7 +385,6 @@ server <- function(input, output) {
     Links_all <- lapply(Pval_sel, function(links) links[links$pvalue < input$alpha, ])
     
     if(sum(sapply(Links_all, nrow)) == 0) return(NULL)
-    print(mem_used())
     Links_all
   })
 
@@ -490,7 +492,6 @@ server <- function(input, output) {
     direction[Pcoef == 1] <- "blue"
     direction[Pcoef == 0] <- "red"
     
-    print(mem_used())
     list(Links_temp = Links_temp, Nodes_temp = Nodes_temp, direction = direction)
   })
 
