@@ -141,7 +141,7 @@ ui <- dashboardPage(
                     p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
                     p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/DrugProt-Paper", "github.com/markusul/DrugProt-Paper", target = "_blank")),
                     p(strong("Complete evidence (all p-values + effects): "),
-                      a(href = "https://polybox.ethz.ch/index.php/s/8YKDWxfsYpEksSR",
+                      a(href = "https://doi.org/10.5281/zenodo.21508013",
                         "download archive", target = "_blank"),
                       " \u2014 raw, uncorrected p-values and effect estimates for every protein, ",
                       "drug, and time point (includes a README describing the columns)."),

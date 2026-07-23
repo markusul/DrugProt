@@ -97,7 +97,7 @@ install.packages(c(
 The precomputed statistical evidence is distributed separately from the code
 because of its size. Download the archive from:
 
-<https://polybox.ethz.ch/index.php/s/8YKDWxfsYpEksSR>
+<https://doi.org/10.5281/zenodo.21508013>
 
 The archive contains raw, uncorrected p-values and effect estimates for every
 protein, drug, and time point, together with a README describing the columns.
