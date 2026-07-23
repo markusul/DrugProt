@@ -136,7 +136,7 @@ ui <- dashboardPage(
                     p(em("Note:"), " for a queried set, both the parents and children of each protein are searched across the whole proteome, so the returned network can extend well beyond the proteins you selected.")
                 ),
                 box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,
-                    p(strong("Paper: "), a(href = "#", "[link to be added]", target = "_blank")),
+                    p(strong("Paper: "), a(href = "https://doi.org/10.64898/2026.06.17.732914", "doi.org/10.64898/2026.06.17.732914", target = "_blank")),
                     p(strong("Web application: "), a(href = "https://ulme.shinyapps.io/DrugProt/", "ulme.shinyapps.io/DrugProt", target = "_blank")),
                     p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
                     p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/DrugProt-Paper", "github.com/markusul/DrugProt-Paper", target = "_blank")),
@@ -153,7 +153,8 @@ ui <- dashboardPage(
                 box(title = "Cite Drug-Prot", status = "primary", solidHeader = TRUE, width = 12,
                     p("If you use Drug-Prot, please cite:"),
                     p(em("Ulmer, M., Sun, R., Qian, L., Aebersold, R., Guo, T., and B\u00fchlmann, P. (2026). ",
-                         "Drug-Prot: A query system for statistical inference of drug effects and interactions in dynamic proteomic networks.")),
+                         "Drug-Prot: A query system for statistical inference of drug effects and interactions in dynamic proteomic networks. ",
+                         "bioRxiv. https://doi.org/10.64898/2026.06.17.732914")),
                     p("Please also cite the underlying dataset:"),
                     p(em("Sun, R., Qian, L., Li, Y., et al. (2025). A perturbation proteomics-based foundation model for virtual cell construction. ",
                          "bioRxiv. https://doi.org/10.1101/2025.02.07.637070"))
