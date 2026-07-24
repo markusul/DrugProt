@@ -1,4 +1,4 @@
-# Drug-Prot <a href="https://ulme.shinyapps.io/DrugProt/"><img src="www/drugprot-logo.svg" align="right" height="120" alt="DrugProt website" /></a>
+# Drug-Prot <a href="https://ulme.shinyapps.io/DrugProt/"><img src="www/drugprot-mark.png" align="right" height="120" alt="DrugProt website" /></a>
 
 An interactive R Shiny application for querying statistical evidence of drug
 effects, drug–drug interactions, and directed temporal protein dependencies in
