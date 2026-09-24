@@ -321,12 +321,13 @@ server <- function(input, output) {
     sel
   })
 
-  
   adjusted_pvecs <- reactive({
-    if(is.null(P_selection())) return(NULL)
+    if (is.null(P_selection()) || is.null(input$t)) return(NULL)
     print("Fetching and adjusting p-values from DB...")
     
     selPvecs <- dp_drug_selPvecs(db, P_selection(), nTreatment, length(expTimes))
+    t_selection <- t_choice %in% input$t
+    selPvecs <- selPvecs[, t_selection, , drop = FALSE]
     array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
   })
   
@@ -336,7 +337,7 @@ server <- function(input, output) {
 
     selPvecs <- adjusted_pvecs()
     
-    pvec <- apply(selPvecs, 1, function(p) min(p[t_selection, ]))
+    pvec <- apply(selPvecs, 1, function(p) min(p))
     names(pvec) <- sapply(treatment, replace_drug_ids)
     pvec
   })
@@ -349,7 +350,7 @@ server <- function(input, output) {
     
     min_sel <- apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
 
-    apply(selPvecs, c(1, 3), function(p) which.min(p[t_selection]))
+    apply(selPvecs, c(1, 3), function(p) which.min(p))
   })
   
   Links_all <- reactive({
@@ -677,7 +678,7 @@ server <- function(input, output) {
     seladjP <- matrix(0, nrow = nrow(times), ncol = ncol(times))
     for(i in 1:nrow(times)){
       for(j in 1:ncol(times)){
-        seladjP[i, j] <- adjusted_pvecs()[selTreat[j], which(t_selection)[min_loc()[selTreat[j], i]], i]
+        seladjP[i, j] <- adjusted_pvecs()[selTreat[j], min_loc()[selTreat[j], i], i]
       }
     }
     
