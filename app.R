@@ -92,7 +92,7 @@ ui <- dashboardPage(
                 box(title = "What Drug-Prot does", status = "primary", solidHeader = TRUE, width = 12,
                     p("Drug-Prot is an interactive query system built on a large-scale perturbation proteomics dataset of 18 breast cancer cell lines, ",
                       "treated with 63 single drugs and 59 drug combinations, with protein expression measured at 6, 24, and 48 hours after treatment ",
-                      "(Sun et al., 2025). For a user-defined set of proteins, Drug-Prot reports pre-computed statistical evidence for two kinds of relationship:"),
+                      "(Sun et al., 2026). For a user-defined set of proteins, Drug-Prot reports pre-computed statistical evidence for two kinds of relationship:"),
                     tags$ul(
                       tags$li(strong("Drug effects on proteins:"), " corrected p-values for the effect of each single drug and each drug pair on the selected proteins, at each time point. ",
                               "These are reported on the ", strong("Drug Effects"), " tab."),
@@ -154,8 +154,8 @@ ui <- dashboardPage(
                         "download archive", target = "_blank"),
                       " \u2014 raw, uncorrected p-values and effect estimates for every protein, ",
                       "drug, and time point (includes a README describing the columns)."),
-                    p(strong("Underlying dataset: "), "Sun et al. (2025), ",
-                      a(href = "https://doi.org/10.1101/2025.02.07.637070", "doi.org/10.1101/2025.02.07.637070", target = "_blank"))
+                    p(strong("Underlying dataset: "), "Sun et al. (2026), ",
+                      a(href = "https://doi.org/10.1038/s41586-026-11001-9", "doi.org/10.1038/s41586-026-11001-9", target = "_blank"))
                 )
               ),
               fluidRow(
@@ -165,8 +165,8 @@ ui <- dashboardPage(
                          "Drug-Prot: A query system for statistical inference of drug effects and interactions in dynamic proteomic networks. ",
                          "bioRxiv. https://doi.org/10.64898/2026.06.17.732914")),
                     p("Please also cite the underlying dataset:"),
-                    p(em("Sun, R., Qian, L., Li, Y., et al. (2025). A perturbation proteomics-based foundation model for virtual cell construction. ",
-                         "bioRxiv. https://doi.org/10.1101/2025.02.07.637070"))
+                    p(em("Sun, R., Qian, L., Li, Y., et al. (2026). An operational perturbation proteomics-based virtual cell model. ",
+                         "Nature. https://doi.org/10.1038/s41586-026-11001-9"))
                 )
               ),
               fluidRow(

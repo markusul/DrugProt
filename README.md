@@ -288,7 +288,7 @@ repository:
 The full pipeline runs as follows:
 
 ```
-Perturbation proteomics data (Sun et al., 2025)
+Perturbation proteomics data (Sun et al., 2026)
   │
   ├─ model fitting: de-sparsified Lasso via the hdi package,
   │  producing p-values and coefficients as .RData under results/
@@ -307,7 +307,7 @@ Perturbation proteomics data (Sun et al., 2025)
 ```
 
 The underlying perturbation proteomics dataset is described in Sun et al.
-(2025), <https://doi.org/10.1101/2025.02.07.637070>.
+(2029), <https://doi.org/10.1038/s41586-026-11001-9>.
 
 ## Citation
 
@@ -319,9 +319,9 @@ If you use Drug-Prot, please cite:
 
 Please also cite the underlying dataset:
 
-> Sun, R., Qian, L., Li, Y., et al. (2025). A perturbation proteomics-based
-> foundation model for virtual cell construction. bioRxiv.
-> <https://doi.org/10.1101/2025.02.07.637070>
+> Sun, R., Qian, L., Li, Y., et al. (2026). An operational perturbation
+> proteomics-based virtual cell model. Nature.
+> <https://doi.org/10.1038/s41586-026-11001-9>
 
 ### Methods references
 
