@@ -63,6 +63,7 @@ drug_lookup <- setNames(tmp$name, tmp$id)
 drugOrder <- sapply(drugOrder, replace_drug_ids)
 t_choice  <- paste0(expTimes, "h")
 
+dataVersion <- "v1"
 
 ui <- dashboardPage(
   title = "Drug-Prot",
@@ -80,6 +81,10 @@ ui <- dashboardPage(
   ),
   dashboardBody(
     withMathJax(),
+    div(class = "alert alert-info",
+        "Results are from the analysis in the preprint (version 1).",
+        "A revised analysis is in progress, and individual p-values may change.",
+        "The interface and the type of evidence stay the same."),
     tabItems(
       tabItem(tabName = "About",
               h2("Drug-Prot: statistical inference of drug effects and protein dependencies"),
@@ -1047,7 +1052,7 @@ server <- function(input, output) {
 
   output$downloadPvalsDrug <- downloadHandler(
     filename = function() {
-      paste('DrugEffects-', Sys.Date(), '.csv', sep='')
+      paste('DrugEffects-', dataVersion, '-', Sys.Date(), '.csv', sep='')
     },
     content = function(con) {
       if(is.null(P_selection())) {
@@ -1062,7 +1067,7 @@ server <- function(input, output) {
 
   output$downloadPvalsProtein <- downloadHandler(
     filename = function() {
-      paste('ProteinEffects-', Sys.Date(), '.csv', sep='')
+      paste('ProteinEffects', dataVersion, '-', Sys.Date(), '.csv', sep='')
     },
     content = function(con) {
       Links_all_res <- Links_all()
@@ -1105,7 +1110,7 @@ server <- function(input, output) {
 
   output$downloadSummary <- downloadHandler(
     filename = function() {
-      paste('ProteinNetworkSummary-', Sys.Date(), '.html', sep='')
+      paste('ProteinNetworkSummary-', dataVersion, '-', Sys.Date(), '.html', sep='')
     },
     content = function(con) {
       if(is.null(P_selection())) return(NULL)
@@ -1129,7 +1134,7 @@ server <- function(input, output) {
 
   output$downloadTemporal <- downloadHandler(
     filename = function() {
-      paste('ProteinNetworkTemporal-', Sys.Date(), '.html', sep='')
+      paste('ProteinNetworkTemporal-', dataVersion, '-', Sys.Date(), '.html', sep='')
     },
     content = function(con) {
       if(is.null(P_selection())) return(NULL)
