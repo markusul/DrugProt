@@ -144,8 +144,7 @@ ui <- dashboardPage(
                               em("Example"), " button to load either the two most IC50-predictive proteins (LMNA and RAB7A) or the full 26-protein set from the paper, or upload a .txt file with one protein name per line."),
                       tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
                       tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
-                      tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs.")
-                    ),
+                      tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs. For a single queried protein, the drug table also contains the effect estimate and its sign.")                    ),
                     p(em("Note:"), " for a queried set, both the parents and children of each protein are searched across the whole proteome, so the returned network can extend well beyond the proteins you selected.")
                 ),
                 box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,

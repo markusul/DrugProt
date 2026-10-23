@@ -45,6 +45,10 @@ Drug pairs without experimental data are coded with a sentinel value of 2 and
 rendered in black. Companion tables list significant single drugs and
 significant drug pairs in order of increasing p-value.
 
+**Direct and total effects.** At 24 and 48 hours, users choose whether drug-effect 
+p-values refer to the direct effect, adjusted for the proteome at the preceding 
+time point, or to the total effect. At 6 hours both coincide.
+
 **Protein network.** A directed temporal dependency subgraph linking the
 queried proteins to other proteins in the dataset. Two views are provided: a
 temporal graph, in which each node is a (protein, time point) pair and edges run
@@ -53,9 +57,11 @@ the temporal graph across time. Both are rendered as zoomable, draggable,
 force-directed networks. Edge direction reflects the temporal ordering of the
 measurements and is not protected against unmeasured confounding.
 
-**Downloads.** Corrected drug-effect p-values and protein–protein edge p-values
-for the queried set as CSV, and the summary and temporal graphs as standalone
-interactive HTML.
+**Downloads.** Corrected drug-effect p-values for the queried set and the chosen 
+effect type as CSV. If a single protein is queried, the file also gives, for each 
+treatment, the time point of the reported p-value and the estimated effect and its 
+sign there. Corrected protein–protein edge p-values with the sign of each edge as 
+CSV, and the summary and temporal graphs as standalone interactive HTML.
 
 ## Repository contents
 
@@ -63,7 +69,7 @@ interactive HTML.
 |---|---|
 | `app.R` | The Shiny application: UI definition and server logic. |
 | `dbAccess_parquet.R` | Data access layer backed by Parquet files read through DuckDB. This is the backend the deployed app uses. |
-| `dbAccess.R` | Alternative data access layer backed by a single SQLite database. Exposes the same five helper functions with identical signatures, so it is a drop-in replacement. |
+| `dbAccess.R` | Alternative data access layer backed by a single SQLite database. Exposes the same six helper functions with identical signatures, so it is a drop-in replacement. |
 | `examples/exampleSet.txt` | Example protein-set upload file (nuclear envelope / lamina-associated proteins), one HGNC symbol per line. |
 | `www/drugprot-logo.svg` | Application logo. |
 | `DrugProt.Rproj` | RStudio project file. |
@@ -208,7 +214,7 @@ lookup tables map those indices to names.
 | `drug_pvalue` | `protein`, `treatment`, `time_idx`, `pvalue` — raw p-values for drug effects |
 | `drug_coef` | `protein`, `treatment`, `time_idx`, `coef` — estimated drug effects |
 | `protein_pvalue` | `source`, `target`, `time_idx`, `pvalue` — raw p-values for temporal dependencies |
-| `protein_coef` | `source`, `target`, `time_idx`, `coef` — estimated dependency coefficients |
+| `protein_coef` | `source`, `target`, `time_idx`, `coef` — indicator of a positive dependency coefficient (absent edges are negative) |
 
 Both data access layers return **raw, uncorrected** p-values. All statistical
 decisions — multiple-testing correction, α thresholding, minimum-over-time
