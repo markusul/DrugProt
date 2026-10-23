@@ -110,14 +110,18 @@ ui <- dashboardPage(
                     p(strong("The two kinds of relationship are not interpreted the same way.")),
                     tags$ul(
                       tags$li(strong("Drug \u2192 protein effects can be read causally."),
-                              " Because drug administration is externally controlled and unconfounded, a significant effect can be interpreted as the interventional change in protein expression that the drug (or drug pair) would induce."),
+                              " Because drug administration is externally controlled and unconfounded, a significant total effect can be interpreted as the interventional change in protein expression that the drug (or drug pair) would induce. ",
+                              "The direct effect at 24 and 48 hours additionally adjusts for the proteome at the preceding time point. ",
+                              "It is the part of the effect not mediated by that earlier proteome, and its causal reading additionally assumes that no hidden process affects both the earlier and the later expression."),
                       tags$li(strong("Protein \u2192 protein edges are directional, but not necessarily causal."),
                               " Edge direction reflects the temporal ordering of the measurements (earlier \u2192 later), not a verified mechanism. ",
                               "Hidden, unmeasured biological processes acting between time points may influence both endpoints, so these edges are best treated as ",
                               em("hypothesis-generating"), " rather than mechanistic.")
                     ),
-                    p("The drug effects (at 6 hours) and the protein dependencies (at 24 and 48 hours) are estimated from two high-dimensional linear models, sketched below for a single protein."),
-                    p("$$ y^{6} = \\sum_{j} (\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{6_{0}}_{j} + \\alpha^{6}_{j} D_{j}) + \\sum_{j < k} (\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{6_{0}}_{jk} + \\beta^{6}_{jk} D_{j} D_{k}) + \\varepsilon^{6} $$"),
+                    p("The drug effects and the protein dependencies are estimated from two high-dimensional linear models, sketched below for a single protein. ",
+                      "The first model gives the drug effects at 6 hours and the total drug effects at 24 and 48 hours. ",
+                      "The second model gives the direct drug effects and the protein dependencies at 24 and 48 hours."),
+                    p("$$ y^{t} = \\sum_{j} (\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}) + \\sum_{j < k} (\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}) + \\varepsilon^{t}, \\quad t \\in \\{6, 24, 48\\} $$"),
                     p("$$ y^{t} = \\sum_{j} (\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}) + \\sum_{j < k} (\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}) + (Y^{t-})^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\quad t \\in \\{24, 48\\} $$"),
                     p("Here ", tags$code("y\u1d57"), " is the differential expression of the protein at time ", tags$code("t"), ", relative to its untreated baseline. ",
                       tags$code("D\u2c7c"), " is the administered concentration of drug ", tags$code("j"), ", and ",
@@ -223,10 +227,22 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "DrugEffects", 
               h2("Drug Effects"),
-              checkboxGroupButtons("t", "Select time after drug administration to analyze", t_choice, t_choice, checkIcon = list(
-                yes = icon("square-check"),
-                no = icon("square"))),
-              helpText("Select one or more post-treatment time points (6, 24, 48 hours). Reported p-values are the minimum over the selected time points and the queried proteins."),
+              fluidRow(
+                column(6,
+                  checkboxGroupButtons("t", "Select time after drug administration to analyze", t_choice, t_choice, checkIcon = list(
+                    yes = icon("square-check"),
+                    no = icon("square"))),
+                  helpText("Select one or more post-treatment time points (6, 24, 48 hours). Reported p-values are the minimum over the selected time points and the queried proteins.")
+                ),
+                column(6,
+                  radioGroupButtons("effectType", "Select the drug effect to analyze",
+                    choices = c("Direct effect" = "direct", "Total effect" = "total"),
+                    selected = "direct", checkIcon = list(yes = icon("circle-check"))),
+                  helpText("The direct effect is the part of a drug effect that does not pass through the proteome measured at the preceding time point. ",
+                           "The total effect is the full change in expression the drug induces. ",
+                           "At 6 hours both coincide, because no earlier measurement exists.")
+                )
+              ),
               fluidRow(
                 box(title = "How to read the heatmap", status = "info", solidHeader = TRUE, width = 12, collapsible = TRUE,
                     tags$ul(
@@ -330,11 +346,16 @@ server <- function(input, output) {
     sel
   })
 
+  # direct or total drug effect, direct until the input exists
+  effect_type <- reactive({
+    if (is.null(input$effectType)) "direct" else input$effectType
+  })
+
   adjusted_pvecs <- reactive({
     if (is.null(P_selection()) || is.null(input$t)) return(NULL)
     print("Fetching and adjusting p-values from DB...")
     
-    selPvecs <- dp_drug_selPvecs(db, P_selection(), nTreatment, length(expTimes))
+    selPvecs <- dp_drug_selPvecs(db, P_selection(), nTreatment, length(expTimes), effect_type())
     t_selection <- t_choice %in% input$t
     selPvecs <- selPvecs[, t_selection, , drop = FALSE]
     array(p.adjust(selPvecs, method = input$corectionDrug), dim = dim(selPvecs))
@@ -520,9 +541,9 @@ server <- function(input, output) {
     nChildren <- sum(!SummGraph()$Links_sum$target %in% P_sel_inNodes)
     
     drug_info <- c(
-              paste0("Number of significant single drugs: ",
+              paste0("Number of significant single drugs (", effect_type(), " effects): ",
                      sum(sigEff[1:nDrugs])),
-              paste0("Number of significant interactions: ",
+              paste0("Number of significant interactions (", effect_type(), " effects): ",
                      sum(sigEff[(nDrugs + 1):length(sigEff)]))
     )
 
@@ -669,7 +690,7 @@ server <- function(input, output) {
     df <- data.frame(Protein = unname(prot_names_short[P_selection()]), 
                      stringsAsFactors = FALSE)
     for(i in selTreat){
-      dEff  <- dp_drug_dEff(db, i, nProtein, length(expTimes))
+      dEff  <- dp_drug_dEff(db, i, nProtein, length(expTimes), effect_type())
       DCoef <- dEff[P_selection(), t_selection]
       
       DCoef <- matrix(DCoef, nrow = length(P_selection()))
@@ -1052,15 +1073,29 @@ server <- function(input, output) {
 
   output$downloadPvalsDrug <- downloadHandler(
     filename = function() {
-      paste('DrugEffects-', dataVersion, '-', Sys.Date(), '.csv', sep='')
+      paste('DrugEffects-', effect_type(), '-', dataVersion, '-', Sys.Date(), '.csv', sep='')
     },
     content = function(con) {
       if(is.null(P_selection())) {
         df_res <- data.frame(Drug_or_Interaction = "No protein selected!", PValue = NA, 
                              stringsAsFactors = FALSE)
       }else{
-        df_res <- data.frame(Drug_or_Interaction = names(pvec()), PValue = pvec(), 
-                            stringsAsFactors = FALSE)
+        df_res <- data.frame(Drug_or_Interaction = names(pvec()), PValue = pvec(),
+                             EffectType = effect_type(), stringsAsFactors = FALSE)
+
+        # effect and sign only for a single protein, where the reported p-value refers to one protein
+        sel <- P_selection()
+        if (length(sel) == 1) {
+          t_idx <- which(t_choice %in% input$t)
+          best_time <- t_idx[min_loc()[, 1]]          # time point of the reported p-value
+          cf <- dp_drug_coef_sel(db, sel, effect_type())
+          cmap <- setNames(cf$coef, paste(cf$treatment, cf$time_idx))
+          eff <- unname(cmap[paste(seq_len(nTreatment), best_time)])
+          df_res$Protein <- unname(prot_names_short[sel])
+          df_res$Time    <- t_choice[best_time]
+          df_res$Effect  <- signif(eff, 3)
+          df_res$Sign    <- ifelse(is.na(eff), NA, ifelse(eff > 0, "+", "-"))
+        }
       }
       write.csv(df_res, con, row.names = FALSE)
   })
@@ -1091,10 +1126,16 @@ server <- function(input, output) {
             transition_label <- paste0(expTimes[i], "h to ", expTimes[i+1], "h")
           }
           
+          # protein_coef stores the positive edges only, so an absent edge is negative
+          coef_df <- dp_protein_coef_bulk(db, unique(links[, "target"]), i + 1)
+          positive <- paste(links[, "target"], links[, "source"]) %in%
+            paste(coef_df$target, coef_df$source)
+
           data.frame(InteractionType = transition_label,
                      Source = prot_names_short[links[, "source"]], 
                      Target = prot_names_short[links[, "target"]], 
                      PValue = links[, "pvalue"], 
+                     Sign = ifelse(positive, "+", "-"),
                      stringsAsFactors = FALSE)
         }))
       }

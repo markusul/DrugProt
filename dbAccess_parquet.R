@@ -98,15 +98,22 @@ dp_metadata <- function(con) {
 
 .in_clause <- function(ids) paste(ids, collapse = ",")
 
+## Drug p-values and coefficients exist as direct effects (conditional on the
+## lagged proteome) and total effects (drug design alone). At 6 h both coincide.
+## match.arg also keeps the value out of the SQL string unless it is valid.
+.effect_type <- function(effect_type) match.arg(effect_type, c("direct", "total"))
+
 ## ===========================================================================
 ## DRUG EFFECTS -- replaces the load + selPvecs lines of pvec().
 ## Returns the [nTreatment x nTimes x |selection|] array of RAW drug p-values,
 ## identical to allPvecs[, , selection].
 ## ===========================================================================
-dp_drug_selPvecs <- function(con, selection, nTreatment, nTimes) {
+dp_drug_selPvecs <- function(con, selection, nTreatment, nTimes,
+                             effect_type = "direct") {
   raw <- dbGetQuery(con, sprintf(
     "SELECT protein, treatment, time_idx, pvalue
-       FROM drug_pvalue WHERE protein IN (%s)", .in_clause(selection)))
+       FROM drug_pvalue WHERE effect_type = '%s' AND protein IN (%s)",
+    .effect_type(effect_type), .in_clause(selection)))
   selPvecs <- array(NA_real_, dim = c(nTreatment, nTimes, length(selection)))
   pcol <- match(raw$protein, selection)
   selPvecs[cbind(raw$treatment, raw$time_idx, pcol)] <- raw$pvalue
@@ -141,10 +148,21 @@ dp_net_pvals <- function(con, selection, alpha, nProtein, nNetTimes) {
 ## DRUG COEFFICIENTS -- replaces the load + dEff slice in output$DrugEffects.
 ## Returns the dEff matrix [nProtein x nTimes] for one treatment; absent cells NA.
 ## ===========================================================================
-dp_drug_dEff <- function(con, treatment_idx, nProtein, nTimes) {
+## Drug coefficients (mean debiased effect) of all treatments for a protein
+## selection, in ONE query. Returns data.frame(treatment, protein, time_idx, coef).
+dp_drug_coef_sel <- function(con, selection, effect_type = "direct") {
+  dbGetQuery(con, sprintf(
+    "SELECT treatment, protein, time_idx, coef FROM drug_coef
+      WHERE effect_type = '%s' AND protein IN (%s)",
+    .effect_type(effect_type), .in_clause(selection)))
+}
+
+dp_drug_dEff <- function(con, treatment_idx, nProtein, nTimes,
+                         effect_type = "direct") {
   raw <- dbGetQuery(con, sprintf(
-    "SELECT protein, time_idx, coef FROM drug_coef WHERE treatment = %d",
-    treatment_idx))
+    "SELECT protein, time_idx, coef FROM drug_coef
+      WHERE effect_type = '%s' AND treatment = %d",
+    .effect_type(effect_type), treatment_idx))
   dEff <- matrix(NA_real_, nrow = nProtein, ncol = nTimes)
   if (nrow(raw)) dEff[cbind(raw$protein, raw$time_idx)] <- raw$coef
   dEff
