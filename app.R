@@ -141,7 +141,7 @@ ui <- dashboardPage(
                 box(title = "How a query works", status = "primary", solidHeader = TRUE, width = 6,
                     tags$ol(
                       tags$li("On the ", strong("Settings"), " tab, choose a set of proteins of interest \u2014 type/select them, click an ",
-                              em("Example"), " button to load either the two most IC50-predictive proteins (LMNA and RAB7A) or the full 26-protein set from the paper, or upload a .txt file with one protein name per line."),
+                              em("Example"), " button to load either the three most IC50-predictive proteins (LMNA, HSP90B1, and RAB7A) or the full 25-protein set from the paper, or upload a .txt file with one protein name per line."),
                       tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
                       tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
                       tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs. For a single queried protein, the drug table also contains the effect estimate and its sign.")                    ),
@@ -201,10 +201,10 @@ ui <- dashboardPage(
                                 multiple = TRUE, 
                                 options = list("live-search"=TRUE)),
                     helpText("Start typing to search the 5,392 measured proteins, and select one or more to query. Proteins are named by their HGNC gene symbol (e.g. RAB7A, LMNA, MAP2K1); proteins quantified together as a group are joined with a slash (e.g. CALM1/CALM2/CALM3). The analysis is restricted to the selected set, which reduces the multiple-testing burden and increases power."),
-                    actionButton("preSelectedTwo", "Example: LMNA & RAB7A"),
-                    actionButton("preSelected", "Example: 26 IC50 proteins"),
+                    actionButton("preSelectedTwo", "Example: LMNA, HSP90B1, & RAB7A"),
+                    actionButton("preSelected", "Example: 25 IC50 proteins"),
                     actionButton("clear", "Clear Selection"), 
-                    helpText("\"Example: LMNA & RAB7A\" loads the two most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 26 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
+                    helpText("\"Example: LMNA, HSP90B1, & RAB7A\" loads the two most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 25 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
                     fileInput("file", "Upload .txt File with Protein Names (one per line)", accept = c(".txt")),
                     helpText("Alternatively, upload a plain-text file with one protein name per line (e.g. a curated pathway or complex). Names must match those in the dataset."),
                     h3("p-value Adjustments"),
@@ -310,15 +310,16 @@ server <- function(input, output) {
 
   observeEvent(input$preSelectedTwo, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
-                      selected = c("LMNA", "RAB7A"))
+                      selected = c("LMNA", "HSP90B1", "RAB7A"))
   })
   observeEvent(input$preSelected, {
-    most_imp_26 <- c("VDAC1", "CALM1/CALM2/CALM3", "IQGAP1", "RPS25", "PCBP2", "DDX39B",
-                     "GMPS", "MAP2K1", "KIF5B", "RPLP0", "CYCS", "SNRNP70", "PTMA", "LMNA",
-                     "SFPQ", "ACLY", "RALY", "RPSA", "RPL7", "SF3B3", "RAB7A", "SUPT16H",
-                     "MYL6", "RAP1B", "AKAP13", "HSP90B1")
+    most_imp_25 <- c("VDAC1", "CALM1/CALM2/CALM3", "IQGAP1", "RPS25", "DDX39B", 
+                     "GMPS", "MAP2K1", "KIF5B", "RPLP0", "CYCS", "SNRNP70", 
+                     "PTMA", "LMNA", "SFPQ", "PABPC1", "ACLY", "RALY", "RPL7", 
+                     "SF3B3", "RAB7A", "SUPT16H", "HSP90B1", "RAP1B", 
+                     "AKAP13", "MYOF")
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
-                      selected = prot_names_short[prot_names_short %in% most_imp_26])
+                      selected = prot_names_short[prot_names_short %in% most_imp_25])
   })
   observeEvent(input$clear, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", selected = character(0))
