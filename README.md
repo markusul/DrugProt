@@ -172,8 +172,8 @@ Results are identical either way.
 **Select proteins** (Settings tab), in one of three ways:
 
 1. Type or select from the searchable picker of all 5,392 measured proteins.
-2. Click an example button — *LMNA & RAB7A* (the two most IC50-predictive
-   proteins from the paper) or *26 IC50 proteins* (the full predictive set).
+2. Click an example button — *LMNA, HSP90B1, & RAB7A* (the three most IC50-predictive
+proteins from the paper) or *25 IC50 proteins* (the full predictive set).
 3. Upload a plain-text file with one protein identifier per line. See
    `examples/exampleSet.txt` for the expected format.
 

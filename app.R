@@ -201,10 +201,10 @@ ui <- dashboardPage(
                                 multiple = TRUE, 
                                 options = list("live-search"=TRUE)),
                     helpText("Start typing to search the 5,392 measured proteins, and select one or more to query. Proteins are named by their HGNC gene symbol (e.g. RAB7A, LMNA, MAP2K1); proteins quantified together as a group are joined with a slash (e.g. CALM1/CALM2/CALM3). The analysis is restricted to the selected set, which reduces the multiple-testing burden and increases power."),
-                    actionButton("preSelectedTwo", "Example: LMNA, HSP90B1, & RAB7A"),
+                    actionButton("preSelectedThree", "Example: LMNA, HSP90B1, & RAB7A"),
                     actionButton("preSelected", "Example: 25 IC50 proteins"),
                     actionButton("clear", "Clear Selection"), 
-                    helpText("\"Example: LMNA, HSP90B1, & RAB7A\" loads the two most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 25 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
+                    helpText("\"Example: LMNA, HSP90B1, & RAB7A\" loads the three most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 25 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
                     fileInput("file", "Upload .txt File with Protein Names (one per line)", accept = c(".txt")),
                     helpText("Alternatively, upload a plain-text file with one protein name per line (e.g. a curated pathway or complex). Names must match those in the dataset."),
                     h3("p-value Adjustments"),
@@ -308,7 +308,7 @@ server <- function(input, output) {
   # control panel
   print("Start Server")
 
-  observeEvent(input$preSelectedTwo, {
+  observeEvent(input$preSelectedThree, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
                       selected = c("LMNA", "HSP90B1", "RAB7A"))
   })
