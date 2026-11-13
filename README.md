@@ -14,7 +14,7 @@ protein in the dataset. Because multiple-testing correction is applied only
 over the queried set, focused analyses gain substantial power relative to
 proteome-wide searches.
 
-All statistical evidence (approximately 60 million p-values across 5,392
+All statistical evidence (approximately 55 million p-values across 5'078
 proteins, 122 treatments, and three time points) is precomputed, so queries are
 near-instantaneous and the underlying proteomic dataset is never needed at
 query time.
@@ -103,7 +103,7 @@ install.packages(c(
 The precomputed statistical evidence is distributed separately from the code
 because of its size. Download the archive from:
 
-<https://doi.org/10.5281/zenodo.21508013>
+<https://doi.org/10.5281/zenodo.21508012>
 
 The archive contains raw, uncorrected p-values and effect estimates for every
 protein, drug, and time point, together with a README describing the columns.
@@ -129,7 +129,7 @@ DrugProt/
 └── ...
 ```
 
-`protein_pvalue.parquet` is by far the largest file (~58 million rows); the
+`protein_pvalue.parquet` is by far the largest file (~52 million rows); the
 others are small.
 
 ## Installation and running locally
@@ -171,9 +171,9 @@ Results are identical either way.
 
 **Select proteins** (Settings tab), in one of three ways:
 
-1. Type or select from the searchable picker of all 5,392 measured proteins.
-2. Click an example button — *LMNA, HSP90B1, & RAB7A* (the three most IC50-predictive
-proteins from the paper) or *25 IC50 proteins* (the full predictive set).
+1. Type or select from the searchable picker of all 5'078 measured proteins.
+2. Click an example button — *TPX2 & IFI30* (the two most IC50-predictive
+proteins from the paper) or *8 IC50 proteins* (the full predictive set).
 3. Upload a plain-text file with one protein identifier per line. See
    `examples/exampleSet.txt` for the expected format.
 
@@ -313,7 +313,7 @@ Perturbation proteomics data (Sun et al., 2026)
 ```
 
 The underlying perturbation proteomics dataset is described in Sun et al.
-(2029), <https://doi.org/10.1038/s41586-026-11001-9>.
+(2026), <https://doi.org/10.1038/s41586-026-11001-9>.
 
 ## Citation
 
@@ -321,7 +321,8 @@ If you use Drug-Prot, please cite:
 
 > Ulmer, M., Sun, R., Qian, L., Aebersold, R., Guo, T., and Bühlmann, P.
 > (2026). Drug-Prot: A query system for statistical inference of drug effects
-> and interactions in dynamic proteomic networks.
+> and interactions in dynamic proteomic networks. bioRxiv. 
+> <https://doi.org/10.64898/2026.06.17.732914>
 
 Please also cite the underlying dataset:
 

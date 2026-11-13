@@ -63,7 +63,7 @@ drug_lookup <- setNames(tmp$name, tmp$id)
 drugOrder <- sapply(drugOrder, replace_drug_ids)
 t_choice  <- paste0(expTimes, "h")
 
-dataVersion <- "v1"
+dataVersion <- "v2"
 
 ui <- dashboardPage(
   title = "Drug-Prot",
@@ -81,10 +81,6 @@ ui <- dashboardPage(
   ),
   dashboardBody(
     withMathJax(),
-    div(class = "alert alert-info",
-        "Results are from the analysis in the preprint (version 1).",
-        "A revised analysis is in progress, and individual p-values may change.",
-        "The interface and the type of evidence stay the same."),
     tabItems(
       tabItem(tabName = "About",
               h2("Drug-Prot: statistical inference of drug effects and protein dependencies"),
@@ -99,7 +95,7 @@ ui <- dashboardPage(
                       tags$li(strong("Temporal dependencies between proteins:"), " a directed network in which an edge from one protein to another indicates that the earlier protein's differential expression ",
                               "is significantly associated with the later protein's, after adjusting for residual drug effects. These are reported on the ", strong("Protein Network"), " tab.")
                     ),
-                    p("All evidence is pre-computed (approximately 60 million p-values across all 5,392 measured proteins, 122 treatments, and three time points), ",
+                    p("All evidence is pre-computed (approximately 55 million p-values across all 5'078 measured proteins, 122 treatments, and three time points), ",
                       "so queries return instantly and you never need to download the underlying dataset."),
                     p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
                       "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
@@ -141,7 +137,7 @@ ui <- dashboardPage(
                 box(title = "How a query works", status = "primary", solidHeader = TRUE, width = 6,
                     tags$ol(
                       tags$li("On the ", strong("Settings"), " tab, choose a set of proteins of interest \u2014 type/select them, click an ",
-                              em("Example"), " button to load either the three most IC50-predictive proteins (LMNA, HSP90B1, and RAB7A) or the full 25-protein set from the paper, or upload a .txt file with one protein name per line."),
+                              em("Example"), " button to load either the two most IC50-predictive proteins (TPX2 and IFI30) or the full 8-protein set from the paper, or upload a .txt file with one protein name per line."),
                       tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
                       tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
                       tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs. For a single queried protein, the drug table also contains the effect estimate and its sign.")                    ),
@@ -153,7 +149,7 @@ ui <- dashboardPage(
                     p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
                     p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/DrugProt-Paper", "github.com/markusul/DrugProt-Paper", target = "_blank")),
                     p(strong("Complete evidence (all p-values + effects): "),
-                      a(href = "https://doi.org/10.5281/zenodo.21508013",
+                      a(href = "https://doi.org/10.5281/zenodo.21508012",
                         "download archive", target = "_blank"),
                       " \u2014 raw, uncorrected p-values and effect estimates for every protein, ",
                       "drug, and time point (includes a README describing the columns)."),
@@ -200,11 +196,11 @@ ui <- dashboardPage(
                                 choices = unname(prot_names_short), 
                                 multiple = TRUE, 
                                 options = list("live-search"=TRUE)),
-                    helpText("Start typing to search the 5,392 measured proteins, and select one or more to query. Proteins are named by their HGNC gene symbol (e.g. RAB7A, LMNA, MAP2K1); proteins quantified together as a group are joined with a slash (e.g. CALM1/CALM2/CALM3). The analysis is restricted to the selected set, which reduces the multiple-testing burden and increases power."),
-                    actionButton("preSelectedThree", "Example: LMNA, HSP90B1, & RAB7A"),
-                    actionButton("preSelected", "Example: 25 IC50 proteins"),
+                    helpText("Start typing to search the 5'078 measured proteins, and select one or more to query. Proteins are named by their HGNC gene symbol (e.g. RAB7A, LMNA, MAP2K1); proteins quantified together as a group are joined with a slash (e.g. CALM1/CALM2/CALM3). The analysis is restricted to the selected set, which reduces the multiple-testing burden and increases power."),
+                    actionButton("preSelectedThree", "Example: TPX2 & IFI30"),
+                    actionButton("preSelected", "Example: 8 IC50 proteins"),
                     actionButton("clear", "Clear Selection"), 
-                    helpText("\"Example: LMNA, HSP90B1, & RAB7A\" loads the three most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 25 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
+                    helpText("\"Example: TPX2 & IFI30\" loads the two most IC50-predictive proteins from the paper \u2014 a small, interpretable network. \"Example: 8 IC50 proteins\" loads the full predictive set from the paper. \"Clear Selection\" empties the current set."),
                     fileInput("file", "Upload .txt File with Protein Names (one per line)", accept = c(".txt")),
                     helpText("Alternatively, upload a plain-text file with one protein name per line (e.g. a curated pathway or complex). Names must match those in the dataset."),
                     h3("p-value Adjustments"),
@@ -248,7 +244,7 @@ ui <- dashboardPage(
                       tags$li(strong("Diagonal cells"), " show the evidence that a ", strong("single drug"), " affects the selected protein set."),
                       tags$li(strong("Off-diagonal cells"), " show the evidence for an ", strong("interaction"), " between a pair of drugs on the selected protein set."),
                       tags$li(strong("Grey scale"), " encodes the corrected p-value (lighter = smaller p-value = stronger evidence)."),
-                      tags$li(strong("Black cells"), " mark drug pairs for which no experimental data exist (shown with a sentinel value of 2); they are not tested.")
+                      tags$li(strong("Cyan cells"), " mark drug pairs for which no experimental data exist.")
                     )
                 )
               ),
@@ -310,16 +306,13 @@ server <- function(input, output) {
 
   observeEvent(input$preSelectedThree, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
-                      selected = c("LMNA", "HSP90B1", "RAB7A"))
+                      selected = c("TPX2", "IFI30"))
   })
   observeEvent(input$preSelected, {
-    most_imp_25 <- c("VDAC1", "CALM1/CALM2/CALM3", "IQGAP1", "RPS25", "DDX39B", 
-                     "GMPS", "MAP2K1", "KIF5B", "RPLP0", "CYCS", "SNRNP70", 
-                     "PTMA", "LMNA", "SFPQ", "PABPC1", "ACLY", "RALY", "RPL7", 
-                     "SF3B3", "RAB7A", "SUPT16H", "HSP90B1", "RAP1B", 
-                     "AKAP13", "MYOF")
+    most_imp_8 <- c("TPX2", "IFI30", "C3", "SNRPD2", "THBS1", "RACK1", 
+                    "ITGA3", "CKS1B")
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", 
-                      selected = prot_names_short[prot_names_short %in% most_imp_25])
+                      selected = prot_names_short[prot_names_short %in% most_imp_8])
   })
   observeEvent(input$clear, {
     updatePickerInput(session = getDefaultReactiveDomain(), inputId = "protSet", selected = character(0))
