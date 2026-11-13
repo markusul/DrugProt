@@ -41,8 +41,8 @@ query time.
 over the set and chosen time points for each single drug and each
 experimentally available drug pair, shown as an interactive 122 × 122 heatmap
 (diagonal: single-drug evidence; off-diagonal: pairwise interaction evidence).
-Drug pairs without experimental data are coded with a sentinel value of 2 and
-rendered in black. Companion tables list significant single drugs and
+Drug pairs without experimental data are shown in cyan. 
+Companion tables list significant single drugs and
 significant drug pairs in order of increasing p-value.
 
 **Direct and total effects.** At 24 and 48 hours, users choose whether drug-effect 
