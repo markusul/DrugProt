@@ -39,7 +39,7 @@ query time.
 
 **Drug effects.** For the selected protein set, the minimum corrected p-value
 over the set and chosen time points for each single drug and each
-experimentally available drug pair, shown as an interactive 122 × 122 heatmap
+experimentally available drug pair, shown as an interactive 63 × 63 heatmap
 (diagonal: single-drug evidence; off-diagonal: pairwise interaction evidence).
 Drug pairs without experimental data are shown in cyan. 
 Companion tables list significant single drugs and
