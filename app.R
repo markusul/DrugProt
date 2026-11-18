@@ -84,13 +84,20 @@ ui <- dashboardPage(
   ),
   dashboardBody(
     withMathJax(),
+    tags$head(tags$style(HTML("
+      .about-figure { float: right; width: 38%; min-width: 220px; max-width: 480px; margin: 0 0 10px 25px; }
+      @media (max-width: 600px) {
+        .about-figure { float: none; display: block; width: 100%; min-width: 0; max-width: 420px; margin: 0 auto 10px auto; }
+      }
+      .MathJax_Display, .MJXc-display, .MathJax_SVG_Display { overflow-x: auto; overflow-y: hidden; }
+    "))),
     tabItems(
       tabItem(tabName = "About",
               h2("Drug-Prot: statistical inference of drug effects and protein dependencies"),
               fluidRow(
                 box(title = "What Drug-Prot does", status = "primary", solidHeader = TRUE, width = 12,
-                    fluidRow(
-                      column(8,
+                    tags$img(src = "overview.png", class = "about-figure",
+                             alt = "Cells are treated with drugs, a model links the protein expression at three time points, and the result is statistical evidence."),
                     p("Drug-Prot is an interactive query system built on a large-scale perturbation proteomics dataset of 18 breast cancer cell lines, ",
                       "treated with 63 single drugs and 59 drug combinations, with protein expression measured at 6, 24, and 48 hours after treatment ",
                       "(Sun et al., 2026). For a user-defined set of proteins, Drug-Prot reports pre-computed statistical evidence for two kinds of relationship:"),
@@ -103,10 +110,7 @@ ui <- dashboardPage(
                     p("All evidence is pre-computed (approximately 55 million p-values across all 5'078 measured proteins, 122 treatments, and three time points), ",
                       "so queries return instantly and you never need to download the underlying dataset."),
                     p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
-                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3)."                      ),
-                    column(4, tags$img(src = "overview.png", style = "width: 100%; max-width: 480px; display: block; margin: 0 auto;",
-                                       alt = "Cells are treated with drugs, a model links the protein expression at three time points, and the result is statistical evidence."))
-                      ))
+                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
                 )
               ),
               fluidRow(
@@ -123,21 +127,25 @@ ui <- dashboardPage(
                               em("hypothesis-generating"), " rather than mechanistic.")
                     ),
                     p("The drug effects and the protein dependencies are estimated from two high-dimensional linear models, sketched below for a single protein. ",
-                      "The first model gives the drug effects at 6 hours and the total drug effects at 24 and 48 hours. ",
-                      "The second model gives the direct drug effects and the protein dependencies at 24 and 48 hours."),
-                    p("$$ y^{t} = \\sum_{j} (\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}) + \\sum_{j < k} (\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}) + \\varepsilon^{t}, \\quad t \\in \\{6, 24, 48\\} $$"),
-                    p("$$ y^{t} = \\sum_{j} (\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}) + \\sum_{j < k} (\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}) + (Y^{t-})^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\quad t \\in \\{24, 48\\} $$"),
-                    p("Here ", tags$code("y\u1d57"), " is the differential expression of the protein at time ", tags$code("t"), ", relative to its untreated baseline. ",
-                      tags$code("D\u2c7c"), " is the administered concentration of drug ", tags$code("j"), ", and ",
-                      tags$code("Y\u1d57\u207b"), " is the vector of differential expressions of all measured proteins at the preceding time point. ",
-                      tags$code("\u03b5"), " is noise. ",
-                      "The ", tags$code("\u03b1\u2070"), " and ", tags$code("\u03b2\u2070"), " terms are treatment intercepts, active only for the samples in which the corresponding drug or drug pair was administered. ",
-                      tags$code("\u03b1"), " and ", tags$code("\u03b2"),
-                      " capture single-drug and drug-interaction effects, and ", tags$code("\u03b3"), " captures the temporal protein-to-protein dependencies."),
+                      "Model (1) gives the drug effects at 6 hours. ",
+                      "Model (2) gives the direct drug effects and the protein dependencies at 24 and 48 hours."),
+                    p("$$ y^{6} = \\sum_{j} \\bigl(\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{6_{0}}_{j} + \\alpha^{6}_{j} D_{j}\\bigr) + \\sum_{j < k} \\bigl(\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{6_{0}}_{jk} + \\beta^{6}_{jk} D_{j} D_{k}\\bigr) + \\varepsilon^{6} \\tag{1} $$"),
+                    p("$$ \\begin{aligned} y^{t} = {} & \\sum_{j} \\bigl(\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}\\bigr) + \\sum_{j < k} \\bigl(\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}\\bigr) \\\\ & + \\bigl(\\mathcal{Y}^{t^{-}}\\bigr)^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\qquad t \\in \\{24, 48\\} \\end{aligned} \\tag{2} $$"),
+                    p("Model (1) is also fitted with the expression at 24 and 48 hours as the response. ",
+                      "Its parameters, written \\(\\bar\\alpha\\) and \\(\\bar\\beta\\) in the paper, are the total drug effects at these time points. ",
+                      "The ", strong("Drug Effects"), " tab offers both the direct and the total effects."),
+                    p("Here \\(y^{t}\\) is the differential expression of the protein at time \\(t\\), relative to its untreated baseline. ",
+                      "\\(D_{j}\\) is the administered concentration of drug \\(j\\), and ",
+                      "\\(\\mathcal{Y}^{t^{-}}\\) is the vector of differential expressions of all measured proteins at the preceding time point \\(t^{-}\\). ",
+                      "\\(\\varepsilon\\) is noise. ",
+                      "\\(\\alpha^{t_{0}}\\) and \\(\\beta^{t_{0}}\\) are treatment intercepts, active only for the samples in which the corresponding drug or drug pair was administered. ",
+                      "\\(\\alpha^{t}\\) and \\(\\beta^{t}\\) are the coefficients of the concentrations. ",
+                      "A treatment that was given at a single concentration only has the intercept. ",
+                      "Together, \\(\\alpha\\) and \\(\\beta\\) capture single-drug and drug-interaction effects, and \\(\\gamma^{t}\\) captures the temporal protein-to-protein dependencies."),
                     p("The interaction sum runs over unordered drug pairs, so each pair contributes one term. Since a single-drug experiment has only one non-zero concentration, the product ",
-                      tags$code("D\u2c7cD\u2096"), " vanishes for all single-drug samples. The interaction parameters are therefore estimated only from the experiments in which that pair was co-administered, which is why interaction evidence is available for the 59 measured pairs. A non-zero interaction means the effect of the combination departs from the sum of the two individual effects on the differential log-expression scale."),
+                      "\\(D_{j} D_{k}\\) vanishes for all single-drug samples. The interaction parameters are therefore estimated only from the experiments in which that pair was co-administered, which is why interaction evidence is available for the 59 measured pairs. A non-zero interaction means the effect of the combination departs from the sum of the two individual effects on the differential log-expression scale."),
                     p("Parameters are estimated with the de-sparsified Lasso, with group p-values for the drug terms and p-values for the protein terms. ",
-                      "This is a simplified sketch. The full models, the precise definition of the aggregated differential expression ", tags$code("Y"),
+                      "This is a simplified sketch. The full models, the precise definition of the aggregated differential expression \\(\\mathcal{Y}\\)",
                       " (which handles the unpaired measurements across time points), and all assumptions are given in the accompanying paper.")
                 )
               ),
