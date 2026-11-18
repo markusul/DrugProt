@@ -6,6 +6,8 @@ a large-scale perturbation proteomics dataset.
 
 **Live application:** <https://ulme.shinyapps.io/DrugProt/>
 
+[![Two drugs act on a cell. Three rings show the protein expression at 6, 24 and 48 hours with the significant dependencies between them, and a panel shows the drug effects on one protein.](www/cover.jpg)](https://ulme.shinyapps.io/DrugProt/)
+
 Drug-Prot lets you specify a set of proteins of interest and returns, for that
 set: corrected p-values for the effect of each of 63 single drugs and 59 drug
 combinations on protein expression at 6, 24, and 48 hours post-treatment; and a
@@ -61,7 +63,9 @@ measurements and is not protected against unmeasured confounding.
 effect type as CSV. If a single protein is queried, the file also gives, for each 
 treatment, the time point of the reported p-value and the estimated effect and its 
 sign there. Corrected protein–protein edge p-values with the sign of each edge as 
-CSV, and the summary and temporal graphs as standalone interactive HTML.
+CSV, and the summary and temporal graphs as standalone interactive HTML. Both
+graphs are also available as static figures (PNG) with a fixed layout and
+labelled proteins, in the style of the network figure of the paper.
 
 ## Repository contents
 
@@ -70,8 +74,11 @@ CSV, and the summary and temporal graphs as standalone interactive HTML.
 | `app.R` | The Shiny application: UI definition and server logic. |
 | `dbAccess_parquet.R` | Data access layer backed by Parquet files read through DuckDB. This is the backend the deployed app uses. |
 | `dbAccess.R` | Alternative data access layer backed by a single SQLite database. Exposes the same helper functions with identical signatures, so it is a drop-in replacement. |
+| `networkFigure.R` | Draws the summary graph and the temporal graph of a query as static figures for the download. |
 | `examples/exampleSet.txt` | Example protein-set upload file (nuclear envelope / lamina-associated proteins), one HGNC symbol per line. |
 | `www/drugprot-logo.svg` | Application logo. |
+| `www/overview.png` | Schematic shown on the About tab. |
+| `www/cover.jpg` | Cover image shown in this README. |
 | `DrugProt.Rproj` | RStudio project file. |
 | `LICENSE` | BSD 3-Clause License. |
 
@@ -84,6 +91,7 @@ Note that the data files themselves are **not** in this repository — see
 - R packages:
   - `shiny`, `shinydashboard`, `shinyWidgets`
   - `plotly`, `networkD3`, `grid`
+  - `ggplot2`, `igraph`, `ragg`, `systemfonts` (static network figure)
   - `readxl`
   - `DBI`, `duckdb` (Parquet backend)
   - `RSQLite` (only if using the SQLite backend)
@@ -92,6 +100,7 @@ Note that the data files themselves are **not** in this repository — see
 install.packages(c(
   "shiny", "shinydashboard", "shinyWidgets",
   "plotly", "networkD3", "readxl",
+  "ggplot2", "igraph", "ragg", "systemfonts",
   "DBI", "duckdb"
 ))
 # only for the SQLite backend:

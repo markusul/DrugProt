@@ -14,6 +14,9 @@ source("dbAccess_parquet.R")
 db <- dp_connect("parquet", in_memory_network = FALSE, memory_limit = "3GB")
 meta <- dp_metadata(db)
 
+# static figures of the two graphs for the download
+source("networkFigure.R")
+
 replace_drug_ids <- function(x) {
   # 1. Split the string by backticks and underscores
   # E.g., "`drug_#123`" becomes c("", "drug", "#123", "")
@@ -86,6 +89,8 @@ ui <- dashboardPage(
               h2("Drug-Prot: statistical inference of drug effects and protein dependencies"),
               fluidRow(
                 box(title = "What Drug-Prot does", status = "primary", solidHeader = TRUE, width = 12,
+                    fluidRow(
+                      column(8,
                     p("Drug-Prot is an interactive query system built on a large-scale perturbation proteomics dataset of 18 breast cancer cell lines, ",
                       "treated with 63 single drugs and 59 drug combinations, with protein expression measured at 6, 24, and 48 hours after treatment ",
                       "(Sun et al., 2026). For a user-defined set of proteins, Drug-Prot reports pre-computed statistical evidence for two kinds of relationship:"),
@@ -98,7 +103,10 @@ ui <- dashboardPage(
                     p("All evidence is pre-computed (approximately 55 million p-values across all 5'078 measured proteins, 122 treatments, and three time points), ",
                       "so queries return instantly and you never need to download the underlying dataset."),
                     p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
-                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
+                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3)."                      ),
+                    column(4, tags$img(src = "overview.png", style = "width: 100%; max-width: 480px; display: block; margin: 0 auto;",
+                                       alt = "Cells are treated with drugs, a model links the protein expression at three time points, and the result is statistical evidence."))
+                      ))
                 )
               ),
               fluidRow(
@@ -140,7 +148,7 @@ ui <- dashboardPage(
                               em("Example"), " button to load either the two most IC50-predictive proteins (TPX2 and IFI30) or the full 8-protein set from the paper, or upload a .txt file with one protein name per line."),
                       tags$li("Choose a significance level and, if you wish, change the multiple-testing correction methods (applied separately to drug and protein effects)."),
                       tags$li("Read off drug effects on the ", strong("Drug Effects"), " tab and the dependency network on the ", strong("Protein Network"), " tab."),
-                      tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML) from the respective tabs. For a single queried protein, the drug table also contains the effect estimate and its sign.")                    ),
+                      tags$li("Download any of the p-value tables (CSV) or the networks (interactive HTML or static figures) from the respective tabs. For a single queried protein, the drug table also contains the effect estimate and its sign.")                    ),
                     p(em("Note:"), " for a queried set, both the parents and children of each protein are searched across the whole proteome, so the returned network can extend well beyond the proteins you selected.")
                 ),
                 box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,
@@ -289,7 +297,9 @@ ui <- dashboardPage(
               fluidRow(
                 box(title = "Download Protein Interaction Network", status = "primary", solidHeader = TRUE,
                     downloadButton("downloadSummary", "Download Summary Graph"), 
-                    downloadButton("downloadTemporal", "Download Temporal Graph"), width = 4),
+                    downloadButton("downloadTemporal", "Download Temporal Graph"),
+                    downloadButton("downloadStaticSummary", "Download Static Summary Graph"),
+                    downloadButton("downloadStaticTemporal", "Download Static Temporal Graph"), width = 4),
                 box(title = "Relevant Proteins", status = "primary", solidHeader = TRUE,
                     fluidRow(column(tableOutput("numProteinEffects"), width = 6), 
                              column(tableOutput("ProteinEffects"), width = 6)), width = 8)
@@ -500,7 +510,7 @@ server <- function(input, output) {
     
     Pcoef <- unlist(lapply(1:(nT-1), function(t) {
       L <- Links_all()[[t]]
-      if (nrow(L) == 0) return(numeric(0))
+      if (is.null(L) || nrow(L) == 0) return(numeric(0))
       ti <- t + 1
       targets <- unique(L[, "target"])
       # ONE query for all targets in this transition:
@@ -1181,6 +1191,29 @@ server <- function(input, output) {
                    colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10);"))
       saveNetwork(fN, file = con)
   })
+
+  # the two graphs as static figures with a fixed layout, graph is "Summary" or "Temporal"
+  static_download <- function(graph) {
+    downloadHandler(
+      filename = function() {
+        paste('ProteinNetwork', graph, '-', dataVersion, '-', Sys.Date(), '.png', sep='')
+      },
+      content = function(con) {
+        if(is.null(P_selection())) return(NULL)
+
+        if(is.null(SummGraph())){
+          Links_sum <- data.frame(source = 0, target = 0, value = 1)
+          Nodes_sum <- data.frame(name = prot_names_short[P_selection()], group = "Selected", size = 1)
+        }else{
+          Links_sum <- SummGraph()$Links_sum
+          Nodes_sum <- SummGraph()$Nodes_sum
+        }
+        static_network_figure(con, tolower(graph), Links_sum, Nodes_sum, TempGraph()$Links_temp, TempGraph()$Nodes_temp,
+                              TempGraph()$direction)
+    })
+  }
+  output$downloadStaticSummary <- static_download("Summary")
+  output$downloadStaticTemporal <- static_download("Temporal")
   
   # Automatically select the treatment with the lowest p-value whenever pvec updates
   observeEvent(pvec(), {
