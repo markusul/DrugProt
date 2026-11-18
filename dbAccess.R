@@ -57,7 +57,7 @@ dp_net_pvals <- function(con, selection, alpha, nProtein, nNetTimes) {
   inSel <- .in_clause(selection)
   lapply(seq_len(nNetTimes), function(tp) {
     ## (source IN ... OR target IN ...) triggers SQLite's MULTI-INDEX OR over
-    ## idx_net_source / idx_net_target -- no scan of the ~58M-row table.
+    ## idx_net_source / idx_net_target -- no scan of the ~52M-row table.
     dbGetQuery(con, sprintf(
       "SELECT source, target, pvalue
          FROM protein_pvalue
@@ -101,4 +101,16 @@ dp_protein_bhat <- function(con, target, time_idx, nProtein) {
   bhat <- numeric(nProtein)           # zeros by default
   if (nrow(raw)) bhat[raw$source] <- raw$coef
   bhat
+}
+
+## All protein coefficients for a set of target proteins at one time, in ONE
+## query. Returns a data.frame(target, source, coef) -- only the stored
+## (positive) edges; callers treat absent (target,source) pairs as 0.
+dp_protein_coef_bulk <- function(con, targets, time_idx) {
+  if (length(targets) == 0)
+    return(data.frame(target = integer(0), source = integer(0), coef = numeric(0)))
+  dbGetQuery(con, sprintf(
+    "SELECT target, source, coef FROM protein_coef
+       WHERE time_idx = %d AND target IN (%s)",
+    time_idx, paste(targets, collapse = ",")))
 }

@@ -69,7 +69,7 @@ CSV, and the summary and temporal graphs as standalone interactive HTML.
 |---|---|
 | `app.R` | The Shiny application: UI definition and server logic. |
 | `dbAccess_parquet.R` | Data access layer backed by Parquet files read through DuckDB. This is the backend the deployed app uses. |
-| `dbAccess.R` | Alternative data access layer backed by a single SQLite database. Exposes the same six helper functions with identical signatures, so it is a drop-in replacement. |
+| `dbAccess.R` | Alternative data access layer backed by a single SQLite database. Exposes the same helper functions with identical signatures, so it is a drop-in replacement. |
 | `examples/exampleSet.txt` | Example protein-set upload file (nuclear envelope / lamina-associated proteins), one HGNC symbol per line. |
 | `www/drugprot-logo.svg` | Application logo. |
 | `DrugProt.Rproj` | RStudio project file. |
@@ -157,7 +157,7 @@ The connection is opened in `app.R` with:
 db <- dp_connect("parquet", in_memory_network = FALSE, memory_limit = "3GB")
 ```
 
-- `in_memory_network = FALSE` keeps the ~58M-row network table as a lazy
+- `in_memory_network = FALSE` keeps the ~52M-row network table as a lazy
   Parquet view on disk. This minimises resident memory and is the setting used
   for the hosted deployment.
 - `in_memory_network = TRUE` materialises that table into memory once at
@@ -211,8 +211,8 @@ lookup tables map those indices to names.
 | `drug_order` | `ord`, `raw_label` — display ordering for the heatmap |
 | `drug_lookup` | `id`, `name` — resolves drug IDs appearing in interaction labels |
 | `meta` | `key`, `value` — `nProtein`, `nTreatment`, `nTimes` |
-| `drug_pvalue` | `protein`, `treatment`, `time_idx`, `pvalue` — raw p-values for drug effects |
-| `drug_coef` | `protein`, `treatment`, `time_idx`, `coef` — estimated drug effects |
+| `drug_pvalue` | `effect_type` (`direct` or `total`), `protein`, `treatment`, `time_idx`, `pvalue` — raw p-values for drug effects |
+| `drug_coef` | `effect_type` (`direct` or `total`), `treatment`, `protein`, `time_idx`, `coef` — estimated drug effects |
 | `protein_pvalue` | `source`, `target`, `time_idx`, `pvalue` — raw p-values for temporal dependencies |
 | `protein_coef` | `source`, `target`, `time_idx`, `coef` — indicator of a positive dependency coefficient (absent edges are negative) |
 
@@ -233,16 +233,19 @@ absence from `protein_pvalue` means "no experiment". Only nonzero entries of
 Both `dbAccess_parquet.R` and `dbAccess.R` provide:
 
 ```r
-dp_connect(...)                                          # open a connection
-dp_metadata(con)                                         # names, labels, counts
-dp_drug_selPvecs(con, selection, nTreatment, nTimes)     # drug p-values for a protein set
-dp_net_pvals(con, selection, alpha, nProtein, nNetTimes) # network p-values for a protein set
-dp_drug_dEff(con, treatment_idx, nProtein, nTimes)       # drug coefficients for one treatment
-dp_protein_bhat(con, target, time_idx, nProtein)         # dependency coefficients for one target
+dp_connect(...)                                                    # open a connection
+dp_metadata(con)                                                   # names, labels, counts
+dp_drug_selPvecs(con, selection, nTreatment, nTimes, effect_type)  # drug p-values for a protein set
+dp_net_pvals(con, selection, alpha, nProtein, nNetTimes)           # network p-values for a protein set
+dp_drug_coef_sel(con, selection, effect_type)                      # drug coefficients for a protein set
+dp_drug_dEff(con, treatment_idx, nProtein, nTimes, effect_type)    # drug coefficients for one treatment
+dp_protein_bhat(con, target, time_idx, nProtein)                   # dependency coefficients for one target
+dp_protein_coef_bulk(con, targets, time_idx)                       # dependency coefficients for several targets
 ```
 
-The Parquet backend additionally provides `dp_disconnect(con)` and
-`dp_protein_coef_bulk(con, targets, time_idx)`.
+`effect_type` is `"direct"` (the default) or `"total"`.
+
+The Parquet backend additionally provides `dp_disconnect(con)`.
 
 ## Storage backends
 
@@ -253,7 +256,7 @@ The application ships with two interchangeable backends:
   pushdown, so a query touches only the row groups and columns it needs.
 - **SQLite** (`dbAccess.R`) — a single-file alternative. Network queries rely on
   SQLite's multi-index OR optimisation over `idx_net_source` / `idx_net_target`
-  to avoid scanning the full ~58M-row table.
+  to avoid scanning the full ~52M-row table.
 
 To switch, change which file `app.R` sources near the top:
 
@@ -299,13 +302,13 @@ Perturbation proteomics data (Sun et al., 2026)
   ├─ model fitting: de-sparsified Lasso via the hdi package,
   │  producing p-values and coefficients as .RData under results/
   │
-  ├─ R/buildDatabase.R      → data/drugprot.sqlite
+  ├─ R/postprocessing/buildDatabase.R    → data/drugprot.sqlite
   │     Collects drug-effect p-values, protein-network p-values, and
   │     drug/protein coefficients into long, indexed SQLite tables.
   │     Sentinel p-values (== 2, "no experiment") are dropped rather
   │     than stored; only nonzero protein coefficients are kept.
   │
-  ├─ R/sqliteToParquet.R    → data/parquet/
+  ├─ R/postprocessing/sqliteToParquet.R  → data/parquet/
   │     Writes one compressed Parquet file per SQLite table.
   │
   └─ copy data/parquet/ into this repository as ./parquet/

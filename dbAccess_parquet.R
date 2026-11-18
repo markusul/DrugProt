@@ -45,7 +45,7 @@ dp_connect <- function(parquet_dir = "data/parquet",
   ## index is created; it would only cost build time and RAM for no benefit).
   ##
   ## Set in_memory_network = FALSE to keep protein_pvalue lazy on disk (lower
-  ## RAM, slower links). The ~58M-row network table costs ~1.5-2 GB resident.
+  ## RAM, slower links). The ~52M-row network table costs ~1.5-2 GB resident.
   view_tables  <- c("proteins", "treatments", "exp_times", "drug_order", "meta",
                     "drug_lookup", "drug_pvalue", "drug_coef", "protein_coef")
   for (t in view_tables) {
