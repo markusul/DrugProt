@@ -130,7 +130,7 @@ ui <- dashboardPage(
                       "Model (1) gives the drug effects at 6 hours. ",
                       "Model (2) gives the direct drug effects and the protein dependencies at 24 and 48 hours."),
                     p("$$ y^{6} = \\sum_{j} \\bigl(\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{6_{0}}_{j} + \\alpha^{6}_{j} D_{j}\\bigr) + \\sum_{j < k} \\bigl(\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{6_{0}}_{jk} + \\beta^{6}_{jk} D_{j} D_{k}\\bigr) + \\varepsilon^{6} \\tag{1} $$"),
-                    p("$$ \\begin{aligned} y^{t} = {} & \\sum_{j} \\bigl(\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}\\bigr) + \\sum_{j < k} \\bigl(\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}\\bigr) \\\\ & + \\bigl(\\mathcal{Y}^{t^{-}}\\bigr)^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\qquad t \\in \\{24, 48\\} \\end{aligned} \\tag{2} $$"),
+                    p("$$ y^{t} = \\sum_{j} \\bigl(\\mathbb{1}_{\\{D_{j} \\neq 0\\}}\\alpha^{t_{0}}_{j} + \\alpha^{t}_{j} D_{j}\\bigr) + \\sum_{j < k} \\bigl(\\mathbb{1}_{\\{D_{j} D_{k} \\neq 0\\}}\\beta^{t_{0}}_{jk} + \\beta^{t}_{jk} D_{j} D_{k}\\bigr) + \\bigl(\\mathcal{Y}^{t^{-}}\\bigr)^{\\top} \\gamma^{t} + \\varepsilon^{t}, \\qquad t \\in \\{24, 48\\} \\tag{2} $$"),
                     p("Model (1) is also fitted with the expression at 24 and 48 hours as the response. ",
                       "Its parameters, written \\(\\bar\\alpha\\) and \\(\\bar\\beta\\) in the paper, are the total drug effects at these time points. ",
                       "The ", strong("Drug Effects"), " tab offers both the direct and the total effects."),
