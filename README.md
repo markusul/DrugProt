@@ -1,10 +1,10 @@
-# Drug-Prot <a href="https://ulme.shinyapps.io/DrugProt/"><img src="www/drugprot-mark.png" align="right" height="120" alt="DrugProt website" /></a>
+# Drug-Prot <a href="https://markus-ulmer.ch/drugprot/"><img src="www/drugprot-mark.png" align="right" height="120" alt="DrugProt website" /></a>
 
 An interactive R Shiny application for querying statistical evidence of drug
 effects, drug–drug interactions, and directed temporal protein dependencies in
 a large-scale perturbation proteomics dataset.
 
-**Live application:** <https://ulme.shinyapps.io/DrugProt/>
+**Live application:** <https://markus-ulmer.ch/drugprot/>
 
 [![Two drugs act on a cell. Three rings show the protein expression at 6, 24 and 48 hours with the significant dependencies between them, and a panel shows the drug effects on one protein.](www/cover.jpg)](https://ulme.shinyapps.io/DrugProt/)
 
@@ -283,7 +283,7 @@ The function names and signatures are identical, so nothing else changes.
 
 ## Deployment
 
-The hosted instance runs on shinyapps.io. `rsconnect/` contains the deployment
+The hosted instance runs on Connect Cloud. `rsconnect/` contains the deployment
 configuration. To deploy your own instance:
 
 ```r

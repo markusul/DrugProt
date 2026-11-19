@@ -70,8 +70,7 @@ dataVersion <- "v2"
 
 ui <- dashboardPage(
   title = "Drug-Prot",
-  
-  dashboardHeader(title = tags$a(href='https://ulme.shinyapps.io/DrugProt/',
+  dashboardHeader(title = tags$a(href='https://markus-ulmer.ch/drugprot/',
                                  tags$img(src='drugprot-logo.svg', height = '50'))
   ),
   dashboardSidebar(
@@ -83,6 +82,7 @@ ui <- dashboardPage(
     )
   ),
   dashboardBody(
+    tags$head(tags$link(rel = "icon", type = "image/png", href = "drugprot-mark.png")),
     withMathJax(),
     tags$head(tags$style(HTML("
       .about-figure { float: right; width: 38%; min-width: 220px; max-width: 480px; margin: 0 0 10px 25px; }
@@ -161,7 +161,7 @@ ui <- dashboardPage(
                 ),
                 box(title = "Access & links", status = "primary", solidHeader = TRUE, width = 6,
                     p(strong("Paper: "), a(href = "https://doi.org/10.64898/2026.06.17.732914", "doi.org/10.64898/2026.06.17.732914", target = "_blank")),
-                    p(strong("Web application: "), a(href = "https://ulme.shinyapps.io/DrugProt/", "ulme.shinyapps.io/DrugProt", target = "_blank")),
+                    p(strong("Web application: "), a(href = "https://markus-ulmer.ch/drugprot/", "markus-ulmer.ch/drugprot/", target = "_blank")),
                     p(strong("Software source code: "), a(href = "https://github.com/markusul/DrugProt", "github.com/markusul/DrugProt", target = "_blank")),
                     p(strong("Paper code (p-value computation): "), a(href = "https://github.com/markusul/DrugProt-Paper", "github.com/markusul/DrugProt-Paper", target = "_blank")),
                     p(strong("Complete evidence (all p-values + effects): "),
