@@ -1,0 +1,12 @@
+name: DrugProt
+title: DrugProt
+username: markusul
+account: markusul
+server: connect.posit.cloud
+hostUrl: https://api.connect.posit.cloud/v1
+appId: 01a1f36a-66b4-f47a-3d49-d961c9be22a9
+bundleId:
+url: https://connect.posit.cloud/markusul/content/01a1f36a-66b4-f47a-3d49-d961c9be22a9
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
