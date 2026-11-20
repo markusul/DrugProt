@@ -6,7 +6,7 @@ a large-scale perturbation proteomics dataset.
 
 **Live application:** <https://markus-ulmer.ch/drugprot/>
 
-[![Two drugs act on a cell. Three rings show the protein expression at 6, 24 and 48 hours with the significant dependencies between them, and a panel shows the drug effects on one protein.](www/cover.jpg)](https://ulme.shinyapps.io/DrugProt/)
+[![Two drugs act on a cell. Three rings show the protein expression at 6, 24 and 48 hours with the significant dependencies between them, and a panel shows the drug effects on one protein.](www/cover.jpg)](https://markus-ulmer.ch/drugprot/)
 
 Drug-Prot lets you specify a set of proteins of interest and returns, for that
 set: corrected p-values for the effect of each of 63 single drugs and 59 drug
@@ -231,9 +231,10 @@ aggregation, edge signing — happen in the Shiny reactives, not in the data
 layer. The `alpha` argument to `dp_net_pvals()` is a performance pre-filter to
 avoid returning tens of millions of irrelevant rows, not a statistical choice.
 
-Two storage conventions are worth noting. Sentinel p-values marking drug pairs
-without experimental data are dropped at build time rather than stored, so
-absence from `protein_pvalue` means "no experiment". Only nonzero entries of
+Two storage conventions are worth noting.
+Drug pairs without experimental data are not among the 122 treatments, so
+`drug_pvalue` has no rows for them.
+Only nonzero entries of
 `protein_coef` are stored, so `dp_protein_bhat()` returns zero for any
 (target, source) pair not present in the table.
 
