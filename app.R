@@ -110,7 +110,7 @@ ui <- dashboardPage(
                     p("All evidence is pre-computed (approximately 55 million p-values across all 5'078 measured proteins, 122 treatments, and three time points), ",
                       "so queries return instantly and you never need to download the underlying dataset."),
                     p("Throughout, proteins are referred to by their ", strong("HGNC gene symbol"), " (e.g. RAB7A, LMNA, MAP2K1). ",
-                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3).")
+                      "Where several proteins were quantified together as one group, their symbols are joined with a slash (e.g. CALM1/CALM2/CALM3). Proteins that share a gene symbol carry their UniProt accession in addition (e.g. TMPO (P42166)).")
                 )
               ),
               fluidRow(

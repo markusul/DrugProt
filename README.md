@@ -188,7 +188,9 @@ proteins from the paper) or *8 IC50 proteins* (the full predictive set).
 
 Proteins are named by HGNC gene symbol (e.g. `RAB7A`, `LMNA`, `MAP2K1`).
 Proteins quantified together as a group are joined with a slash
-(e.g. `CALM1/CALM2/CALM3`). Uploaded names must match those in the dataset.
+(e.g. `CALM1/CALM2/CALM3`). Proteins that share a gene symbol carry their
+UniProt accession in addition (e.g. `TMPO (P42166)`). Uploaded names must
+match those in the dataset.
 
 **Configure the inference** (Settings tab):
 
